@@ -240,6 +240,8 @@ function rebuildMatches() {
     // Goleadores en todos los partidos de España, también eliminatorias
     // (el bot rellena los cruces con los equipos reales al definirse)
     .map(m => ({ ...m, isSpainMatch: m.home === 'España' || m.away === 'España' }))
+    // Ocultar cruces de eliminatorias hasta que se conozcan ambos equipos
+    .filter(m => m.homeFlag !== '❓' && m.awayFlag !== '❓')
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   renderCurrentPage();
 }

@@ -43,9 +43,11 @@ async function run() {
     const extraSnap   = await db.collection('groups').doc(groupId).collection('matches').get();
     const extraMatches = extraSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Partidos ya finalizados
-    const resSnap  = await db.collection('groups').doc(groupId).collection('results').get();
-    const finished = new Set(resSnap.docs.map(d => d.id));
+    // Resultados: estado y nombres reales de los cruces ya definidos
+    const resSnap = await db.collection('groups').doc(groupId).collection('results').get();
+    const resData = {};
+    resSnap.docs.forEach(d => { resData[d.id] = d.data(); });
+    const finished = new Set(resSnap.docs.filter(d => d.data().status === 'finished').map(d => d.id));
 
     // Filtrar partidos en la ventana horaria
     const targets = [...BASE_MATCHES, ...extraMatches].filter(m => {
@@ -85,7 +87,7 @@ async function run() {
         const fcmToken = userSnap.data().fcmToken;
         if (!fcmToken) continue;
 
-        const label = `${match.home} vs ${match.away}`;
+        const label = `${resData[match.id]?.home || match.home} vs ${resData[match.id]?.away || match.away}`;
         console.log(`  → Recordatorio a ${userSnap.data().displayName || uid} sobre "${label}"`);
 
         try {
