@@ -15,7 +15,7 @@ import {
   writeBatch, serverTimestamp,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 import { FIREBASE_CONFIG, VAPID_KEY } from './config.js';
-import { BASE_MATCHES, SPAIN_SQUAD, PHASES } from './data.js';
+import { BASE_MATCHES, SPAIN_SQUAD, PHASES } from './data.js?v=3';
 import {
   getMessaging, getToken, onMessage,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js';
@@ -224,18 +224,29 @@ function listenMembers() {
   unsubFns.push(unsub);
 }
 
+let latestResults = {};   // { matchId: resultDoc } — escritos por el admin o el bot de resultados
+let extraMatches  = [];   // partidos añadidos por el admin
+
+function rebuildMatches() {
+  const base = BASE_MATCHES.map(m => ({ ...m, status: 'upcoming', homeScore: null, awayScore: null, goalscorers: [] }));
+  const byId = new Map(base.map(m => [m.id, m]));
+  for (const ex of extraMatches) byId.set(ex.id, { ...(byId.get(ex.id) || {}), ...ex });
+  allMatches = [...byId.values()]
+    .map(m => ({
+      ...m,
+      ...(latestResults[m.id] || {}),
+      status: latestResults[m.id]?.status || m.status || 'upcoming',
+    }))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  renderCurrentPage();
+}
+
 function listenResults() {
   const ref = collection(db, 'groups', currentGroupId, 'results');
   const unsub = onSnapshot(ref, snap => {
-    const results = {};
-    snap.forEach(d => { results[d.id] = d.data(); });
-    // Merge results into allMatches
-    allMatches = allMatches.map(m => ({
-      ...m,
-      ...(results[m.id] || {}),
-      status: results[m.id]?.status || m.status || 'upcoming',
-    }));
-    renderCurrentPage();
+    latestResults = {};
+    snap.forEach(d => { latestResults[d.id] = d.data(); });
+    rebuildMatches();
   });
   unsubFns.push(unsub);
 }
@@ -254,11 +265,8 @@ function listenMyPredictions() {
 function listenExtraMatches() {
   const ref = collection(db, 'groups', currentGroupId, 'matches');
   const unsub = onSnapshot(ref, snap => {
-    const extraMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Rebuild allMatches from base + extra, preserving results
-    const base = BASE_MATCHES.map(m => ({ ...m, status: 'upcoming', homeScore: null, awayScore: null, goalscorers: [] }));
-    allMatches = [...base, ...extraMatches].sort((a, b) => new Date(a.date) - new Date(b.date));
-    renderCurrentPage();
+    extraMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rebuildMatches();
   });
   unsubFns.push(unsub);
 }
@@ -487,9 +495,9 @@ function buildMatchCard(match, showPrediction) {
 
   return `
   <div class="match-card${match.isSpainMatch ? ' spain' : ''}${isDone ? ' finished' : ''}${isLive ? ' live' : ''}" ${clickAttr}>
-    ${spainBadge}
     <div class="match-meta">
       <span class="match-group">${groupLabel}</span>
+      ${spainBadge}
       <span class="match-status ${statusClass}">${statusLabel}</span>
     </div>
     <div class="match-teams">

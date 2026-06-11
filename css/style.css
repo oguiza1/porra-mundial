@@ -223,10 +223,12 @@ a      { color: var(--accent); text-decoration: none; }
 .prediction-chip.editable   { background: #0d1e30; color: #60a5fa; border: 1px dashed #2563eb; }
 
 .spain-badge {
-  position: absolute; top: .5rem; right: .5rem;
-  font-size: .7rem; background: var(--accent-dim); color: var(--accent);
+  font-size: .65rem; background: var(--accent-dim); color: var(--accent);
   padding: .15rem .4rem; border-radius: 20px; font-weight: 700;
+  white-space: nowrap; margin-left: auto; flex-shrink: 0;
 }
+.match-meta { gap: .4rem; }
+.match-meta .match-status { flex-shrink: 0; }
 
 /* ── INPUTS ──────────────────────────────────────────────── */
 .input-field {

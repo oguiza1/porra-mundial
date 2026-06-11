@@ -1,0 +1,35 @@
+name: Resultados en directo
+
+on:
+  # Cada 5 minutos durante junio y julio de 2026
+  schedule:
+    - cron: '*/5 * 11-30 6 *'
+    - cron: '*/5 * 1-21 7 *'
+  # Permitir ejecución manual desde GitHub para probar
+  workflow_dispatch:
+
+jobs:
+  update-results:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/package.json
+
+      - name: Instalar dependencias
+        run: npm install --production
+        working-directory: scripts
+
+      - name: Actualizar resultados
+        run: node live-results.js
+        working-directory: scripts
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

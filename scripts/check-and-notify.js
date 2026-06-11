@@ -19,17 +19,9 @@ const messaging = admin.messaging();
 const APP_URL = process.env.APP_URL || 'https://oguiza1.github.io/porra-mundial/';
 
 // ── Partidos base (mismos que js/data.js) ─────────────────
-// Cuando el admin añade más partidos desde la app, se guardan
-// en Firestore y el script los lee automáticamente.
-const BASE_MATCHES = [
-  { id: 'H1',      home: 'España',       away: 'Cabo Verde',   date: '2026-06-15T22:00:00Z' },
-  { id: 'H2',      home: 'Arabia Saudí', away: 'Uruguay',      date: '2026-06-15T19:00:00Z' },
-  { id: 'H3',      home: 'España',       away: 'Arabia Saudí', date: '2026-06-21T22:00:00Z' },
-  { id: 'H4',      home: 'Cabo Verde',   away: 'Uruguay',      date: '2026-06-21T19:00:00Z' },
-  { id: 'H5',      home: 'Uruguay',      away: 'España',       date: '2026-06-28T02:00:00Z' },
-  { id: 'H6',      home: 'Arabia Saudí', away: 'Cabo Verde',   date: '2026-06-28T02:00:00Z' },
-  { id: 'R32_ESP', home: 'España',       away: '2º Grupo J',   date: '2026-07-02T22:00:00Z' },
-];
+// Generado por generate-data.py. Cuando el admin añade más
+// partidos desde la app, el script también los lee de Firestore.
+const BASE_MATCHES = require('./matches.json').matches;
 
 async function run() {
   const now    = new Date();
