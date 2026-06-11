@@ -121,20 +121,21 @@ async function run() {
     return;
   }
 
-  // Ayer + hoy (UTC) para cubrir partidos que cruzan la medianoche
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${yyyymmdd(yesterday)}-${yyyymmdd(now)}&limit=50`;
+  // Calendario completo del torneo en una sola petición
+  const url = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200';
   console.log('Consultando ESPN:', url);
   const sb = await (await fetch(url)).json();
   const events = (sb.events || []).filter(e => KNOWN_IDS.has(e.id));
-  console.log(`${events.length} partido(s) en la ventana de fechas.`);
+  console.log(`${events.length} partido(s) en el calendario.`);
 
-  // Recopilar actualizaciones de este ciclo
+  // Recopilar actualizaciones de este ciclo: partidos en juego o
+  // terminados en las últimas 48h (los más antiguos ya se procesaron)
   const updates = []; // { matchId, data, finished }
   for (const e of events) {
     const c     = e.competitions[0];
     const state = c.status?.type?.state; // pre | in | post
     if (state !== 'in' && state !== 'post') continue;
+    if (state === 'post' && now - new Date(e.date) > 48 * 60 * 60 * 1000) continue;
 
     const home = c.competitors.find(t => t.homeAway === 'home');
     const away = c.competitors.find(t => t.homeAway === 'away');
@@ -177,9 +178,13 @@ async function run() {
     const away = c.competitors.find(t => t.homeAway === 'away');
     const h = TEAMS[home.team.displayName];
     const a = TEAMS[away.team.displayName];
-    if (h && a && (base.home !== h[0] || base.away !== a[0])) {
-      nameUpdates.push({ matchId: e.id, data: { home: h[0], homeFlag: h[1], away: a[0], awayFlag: a[1] } });
-      console.log(`  Cruce definido: ${h[0]} vs ${a[0]} (${e.id})`);
+    // ESPN puede conocer solo uno de los dos equipos del cruce
+    const data = {};
+    if (h && base.home !== h[0]) { data.home = h[0]; data.homeFlag = h[1]; }
+    if (a && base.away !== a[0]) { data.away = a[0]; data.awayFlag = a[1]; }
+    if (Object.keys(data).length) {
+      nameUpdates.push({ matchId: e.id, data });
+      console.log(`  Cruce definido: ${data.home || base.home} vs ${data.away || base.away} (${e.id})`);
     }
   }
 
@@ -192,7 +197,10 @@ async function run() {
     const resCol  = db.collection('groups').doc(groupId).collection('results');
 
     for (const { matchId, data } of nameUpdates) {
-      await resCol.doc(matchId).set(data, { merge: true });
+      const cur = (await resCol.doc(matchId).get()).data() || {};
+      if (Object.entries(data).some(([k, v]) => cur[k] !== v)) {
+        await resCol.doc(matchId).set(data, { merge: true });
+      }
     }
 
     let needsRecalc = false;
