@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Preview — Porra Mundial 2026</title>
+  <style>
+    :root {
+      --bg:#09101f; --bg-card:#131929; --bg-card2:#1a2236; --border:#1f2d44;
+      --accent:#00e676; --accent-dim:#00b85840; --gold:#ffd700; --silver:#c0c0c0;
+      --live:#ff5722; --danger:#f44336; --text:#e8edf5; --text-dim:#6b7a99;
+      --radius:14px; --nav-h:68px; --header-h:56px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem 1rem 4rem}
+    button{cursor:pointer;font:inherit;border:none;outline:none}
+
+    /* ── Preview wrapper ── */
+    h1.page-title{font-size:1.5rem;font-weight:800;margin-bottom:.3rem;color:#fff}
+    p.page-sub{color:#6b7a99;font-size:.9rem;margin-bottom:2rem;text-align:center}
+    .screens-row{display:flex;flex-wrap:wrap;justify-content:center;gap:2.5rem;width:100%;max-width:1200px}
+    .screen-wrap{display:flex;flex-direction:column;align-items:center;gap:.75rem}
+    .screen-label{font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b7a99}
+
+    /* ── Phone frame ── */
+    .phone{
+      width:320px; height:680px;
+      background:var(--bg);
+      border-radius:36px;
+      border:2px solid #2a3a55;
+      box-shadow:0 24px 60px #000a, 0 0 0 1px #ffffff08;
+      overflow:hidden;
+      position:relative;
+      display:flex;flex-direction:column;
+    }
+
+    /* ── App Header ── */
+    .app-header{
+      height:var(--header-h);display:flex;align-items:center;justify-content:space-between;
+      padding:0 1rem;background:var(--bg-card);border-bottom:1px solid var(--border);
+      flex-shrink:0;
+    }
+    .header-group{font-weight:700;font-size:.95rem;color:var(--accent)}
+    .header-user{display:flex;align-items:center;gap:.5rem}
+    .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00e676,#006644);
+      display:flex;align-items:center;justify-content:center;font-size:.8rem;border:2px solid var(--accent)}
+    .user-mini{font-size:.78rem;color:var(--text-dim)}
+
+    /* ── Content ── */
+    .content{flex:1;overflow-y:auto;padding:1rem;padding-bottom:calc(var(--nav-h) + .5rem)}
+    .content::-webkit-scrollbar{display:none}
+
+    /* ── Bottom Nav ── */
+    .bottom-nav{
+      height:var(--nav-h);display:flex;background:var(--bg-card);
+      border-top:1px solid var(--border);flex-shrink:0;
+    }
+    .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+      color:var(--text-dim);font-size:.6rem;font-weight:500;background:none;padding:.4rem 0}
+    .nav-item.active{color:var(--accent)}
+    .nav-icon{font-size:1.2rem}
+
+    /* ── Cards ── */
+    .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem}
+    .section-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--text-dim);margin:.9rem 0 .5rem}
+
+    /* ── Welcome / Stats ── */
+    .welcome{background:linear-gradient(135deg,#0d2a1a,#0a1628);border:1px solid var(--accent-dim);
+      border-radius:var(--radius);padding:1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+    .welcome h2{font-size:1rem;font-weight:700}
+    .welcome p{font-size:.75rem;color:var(--text-dim);margin-top:.2rem}
+    .rank-badge{text-align:center;background:var(--bg-card2);border:1px solid var(--border);
+      border-radius:10px;padding:.4rem .65rem;min-width:56px}
+    .rank-num{display:block;font-size:1.3rem;font-weight:800;color:var(--gold)}
+    .rank-lbl{display:block;font-size:.62rem;color:var(--text-dim)}
+
+    .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.75rem}
+    .stat{background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:.6rem;text-align:center}
+    .stat-val{display:block;font-size:1.2rem;font-weight:800;color:var(--accent)}
+    .stat-lbl{display:block;font-size:.62rem;color:var(--text-dim)}
+
+    /* ── Match card ── */
+    .match{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+      padding:.75rem;margin-bottom:.5rem;position:relative}
+    .match.spain{border-left:3px solid var(--accent)}
+    .match.finished{opacity:.8}
+    .match.live{border-left:3px solid var(--live)}
+    .match-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+    .match-grp{font-size:.65rem;color:var(--text-dim);font-weight:600}
+    .status{font-size:.62rem;font-weight:700;padding:.18rem .45rem;border-radius:20px}
+    .status.upcoming{background:#1a2e48;color:#60a5fa}
+    .status.live{background:#3a1a0a;color:var(--live)}
+    .status.done{background:#1a1f2a;color:var(--text-dim)}
+    .teams{display:flex;align-items:center;justify-content:space-between;gap:.4rem}
+    .team{display:flex;flex-direction:column;align-items:center;gap:.15rem;flex:1}
+    .flag{font-size:1.65rem}
+    .tname{font-size:.68rem;font-weight:600;text-align:center;line-height:1.2}
+    .score{font-size:1.25rem;font-weight:800;letter-spacing:.05em}
+    .vs{font-size:.8rem;color:var(--text-dim);font-weight:700}
+    .chip{display:inline-block;font-size:.65rem;font-weight:700;padding:.2rem .5rem;border-radius:20px;margin-top:.4rem}
+    .chip.ok{background:#0d2a1a;color:var(--accent)}
+    .chip.half{background:#1a2a10;color:#a3e635}
+    .chip.wrong{background:#2a1010;color:#f87171}
+    .chip.pend{background:#1a2e48;color:#60a5fa}
+    .chip.warn{background:#2a1f10;color:#fbbf24}
+    .spain-tag{position:absolute;top:.4rem;right:.4rem;font-size:.62rem;
+      background:var(--accent-dim);color:var(--accent);padding:.12rem .35rem;border-radius:20px;font-weight:700}
+    .city{font-size:.65rem;color:var(--text-dim);margin-top:.25rem}
+
+    /* ── Leaderboard ── */
+    .lb-item{display:flex;align-items:center;gap:.65rem;padding:.65rem;background:var(--bg-card);
+      border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.4rem}
+    .lb-item.me{border-color:var(--accent);background:#0d2a1a22}
+    .lb-rank{width:24px;text-align:center;font-weight:800;font-size:.9rem}
+    .lb-rank.gold{color:var(--gold)} .lb-rank.silver{color:var(--silver)} .lb-rank.bronze{color:#cd7f32}
+    .lb-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:.85rem;flex-shrink:0}
+    .lb-info{flex:1;min-width:0}
+    .lb-name{font-weight:600;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lb-sub{font-size:.65rem;color:var(--text-dim);margin-top:.1rem}
+    .lb-pts{font-size:1.05rem;font-weight:800;color:var(--gold)}
+
+    /* ── Group page ── */
+    .invite-box{display:flex;align-items:center;gap:.5rem;background:var(--bg-card2);
+      border:1px solid var(--border);border-radius:10px;padding:.6rem .8rem;margin-top:.6rem}
+    .invite-code{flex:1;font-size:1.3rem;font-weight:800;letter-spacing:.18em;color:var(--accent)}
+    .btn-icon{background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;
+      width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+    .member{display:flex;align-items:center;gap:.6rem;padding:.6rem;background:var(--bg-card);
+      border:1px solid var(--border);border-radius:10px;margin-bottom:.4rem}
+    .member-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;font-size:.8rem}
+    .member-name{flex:1;font-weight:600;font-size:.82rem}
+    .member-pts{font-weight:700;color:var(--gold);font-size:.85rem}
+    .admin-box{background:linear-gradient(135deg,#1a100a,#1a1a0a);border:1px solid #3a2810;
+      border-radius:var(--radius);padding:.85rem;margin-top:1rem}
+    .admin-box h3{font-size:.82rem;color:#fbbf24;margin-bottom:.6rem}
+    .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:.6rem .85rem;
+      border-radius:9px;font-size:.8rem;font-weight:700}
+    .btn-sec{background:var(--bg-card2);color:var(--text);border:1px solid var(--border)}
+    .btn-danger{background:#2a1010;color:var(--danger);border:1px solid #3a1010;width:100%;margin-top:.75rem}
+
+    /* ── Login screen ── */
+    .login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;
+      height:100%;padding:2rem;text-align:center;
+      background:radial-gradient(ellipse at 50% -10%,#0d2a1a,var(--bg) 60%)}
+    .trophy{font-size:4.5rem;margin-bottom:.75rem;animation:pulse 2s infinite}
+    .login-t{font-size:1.9rem;font-weight:800;line-height:1.1;margin-bottom:.4rem}
+    .login-t span{color:var(--accent)}
+    .login-sub{color:var(--text-dim);margin-bottom:2rem;font-size:.85rem}
+    .btn-google{display:flex;align-items:center;justify-content:center;gap:.6rem;
+      background:#fff;color:#333;font-weight:700;font-size:.9rem;padding:.75rem 1.5rem;border-radius:50px;
+      box-shadow:0 4px 20px #0006}
+    .btn-google svg{width:20px;height:20px}
+
+    /* ── Prediction Modal ── */
+    .modal-overlay-demo{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(3px);z-index:10}
+    .modal-sheet-demo{position:absolute;bottom:0;left:0;right:0;z-index:11;background:var(--bg-card);
+      border-radius:14px 14px 0 0;border-top:1px solid var(--border);padding:1rem}
+    .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto .75rem}
+    .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+    .modal-hdr h3{font-size:.92rem;font-weight:700}
+    .pred-teams{display:flex;align-items:center;justify-content:space-between;margin:.5rem 0;gap:.4rem}
+    .pred-team{display:flex;flex-direction:column;align-items:center;gap:.2rem;flex:1}
+    .pred-flag{font-size:2.1rem}
+    .pred-name{font-size:.72rem;font-weight:600;text-align:center}
+    .score-wrap{display:flex;align-items:center;gap:.3rem;flex-shrink:0}
+    .score-inp{width:46px;height:46px;text-align:center;background:var(--bg-card2);
+      border:2px solid var(--accent);border-radius:9px;color:var(--text);font-size:1.3rem;font-weight:800}
+    .score-dash{font-size:1.2rem;color:var(--text-dim);font-weight:700}
+    .gs-hdr{display:flex;align-items:center;justify-content:space-between;margin:.65rem 0 .35rem}
+    .gs-hdr h4{font-size:.8rem;font-weight:700}
+    .x2-badge{background:linear-gradient(135deg,#ff6b35,#f7c59f);color:#000;font-weight:800;
+      font-size:.68rem;padding:.2rem .5rem;border-radius:20px}
+    .gs-hint{font-size:.68rem;color:var(--text-dim);margin-bottom:.5rem}
+    .players-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.3rem;max-height:130px;overflow:hidden}
+    .player-btn{display:flex;align-items:center;gap:.35rem;padding:.4rem .55rem;border-radius:7px;
+      background:var(--bg-card2);border:1px solid var(--border);color:var(--text);font-size:.72rem}
+    .player-btn.sel{border-color:var(--accent);background:#0d2a1a;color:var(--accent)}
+    .pos-tag{font-size:.58rem;color:var(--text-dim);background:var(--bg);padding:.08rem .25rem;border-radius:3px}
+    .pts-row{display:flex;gap:.4rem;margin:.6rem 0}
+    .pts-pill{flex:1;text-align:center;padding:.4rem;background:var(--bg-card2);
+      border:1px solid var(--border);border-radius:7px;font-size:.68rem}
+    .pts-pill .pts{display:block;font-weight:800;font-size:.9rem}
+    .pts-gold{color:var(--gold)} .pts-green{color:var(--accent)} .pts-orange{color:#fb923c}
+    .btn-submit{background:var(--accent);color:#000;font-weight:700;font-size:.85rem;
+      padding:.7rem;border-radius:9px;width:100%;margin-top:.5rem}
+
+    /* ── Setup screen ── */
+    .setup-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;
+      height:100%;padding:1.25rem;gap:1rem}
+    .setup-hdr{text-align:center}
+    .setup-hdr h2{font-size:1.4rem;font-weight:800}
+    .setup-hdr p{font-size:.8rem;color:var(--text-dim);margin-top:.3rem}
+    .input-field{width:100%;padding:.7rem .9rem;background:var(--bg-card2);border:1px solid var(--border);
+      border-radius:9px;color:var(--text);font-size:.9rem;margin-bottom:.6rem}
+    .or-div{text-align:center;color:var(--text-dim);font-size:.78rem}
+    .btn-prim{background:var(--accent);color:#000;font-weight:700;font-size:.85rem;
+      padding:.75rem;border-radius:9px;width:100%}
+    .btn-secc{background:var(--bg-card2);color:var(--text);font-weight:700;font-size:.85rem;
+      padding:.75rem;border-radius:9px;width:100%;border:1px solid var(--border)}
+
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+  </style>
+</head>
+<body>
+
+<h1 class="page-title" style="text-align:center">Porra Mundial 2026 🏆</h1>
+<p class="page-sub">Vista previa de las pantallas de la aplicación</p>
+
+<div class="screens-row">
+
+  <!-- ══════════════════════════════
+       1. LOGIN
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Inicio de sesión</div>
+    <div class="phone">
+      <div class="login-screen">
+        <div class="trophy">🏆</div>
+        <div class="login-t">Porra<br><span>Mundial 2026</span></div>
+        <div class="login-sub">Predice. Compite. Gana.</div>
+        <button class="btn-google">
+          <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Iniciar sesión con Google
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       2. CREAR / UNIRSE GRUPO
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Crear o unirse a grupo</div>
+    <div class="phone">
+      <div class="setup-screen">
+        <div class="setup-hdr">
+          <div style="font-size:3rem;margin-bottom:.4rem">⚽</div>
+          <h2>¡Bienvenido!</h2>
+          <p>Crea tu grupo o únete al de tus amigos</p>
+        </div>
+        <div class="card" style="width:100%">
+          <div class="section-title">➕ Crear Grupo</div>
+          <input class="input-field" placeholder="Nombre del grupo (ej: Los Cracks)">
+          <button class="btn-prim">Crear Grupo</button>
+        </div>
+        <div class="or-div">— o —</div>
+        <div class="card" style="width:100%">
+          <div class="section-title">🔗 Unirse a un Grupo</div>
+          <input class="input-field" placeholder="Código de 6 letras" style="letter-spacing:.15em;text-transform:uppercase" value="MX2026">
+          <button class="btn-secc">Unirse</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       3. HOME / DASHBOARD
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Inicio (Dashboard)</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="header-group">Los Cracks 🏆</span>
+        <div class="header-user">
+          <span class="user-mini">Álvaro</span>
+          <div class="avatar">A</div>
+        </div>
+      </div>
+      <div class="content">
+        <div class="welcome">
+          <div>
+            <h2>¡Hola, Álvaro! 👋</h2>
+            <p>Tienes 2 porras pendientes</p>
+          </div>
+          <div class="rank-badge">
+            <span class="rank-num">#2</span>
+            <span class="rank-lbl">de 5</span>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat"><span class="stat-val">47</span><span class="stat-lbl">Puntos</span></div>
+          <div class="stat"><span class="stat-val">73%</span><span class="stat-lbl">Aciertos</span></div>
+          <div class="stat"><span class="stat-val">3🔥</span><span class="stat-lbl">Racha</span></div>
+        </div>
+        <div class="section-title">Próximo partido sin porra</div>
+        <div class="match spain">
+          <span class="spain-tag">🇪🇸 +goleadores</span>
+          <div class="match-meta">
+            <span class="match-grp">Grupo H</span>
+            <span class="status upcoming">21 jun · 00:00</span>
+          </div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇪🇸</span><span class="tname">España</span></div>
+            <span class="vs">vs</span>
+            <div class="team"><span class="flag">🇸🇦</span><span class="tname">Arabia Saudí</span></div>
+          </div>
+          <div class="city">📍 Atlanta, USA</div>
+        </div>
+        <div class="section-title">Últimas predicciones</div>
+        <div class="match finished">
+          <div class="match-meta">
+            <span class="match-grp">Grupo H</span>
+            <span class="status done">Finalizado</span>
+          </div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇪🇸</span><span class="tname">España</span></div>
+            <span class="score">3 – 0</span>
+            <div class="team"><span class="flag">🇨🇻</span><span class="tname">Cabo Verde</span></div>
+          </div>
+          <span class="chip ok">+10 pts · 3–0 (6 resultado + 2×2 goleadores)</span>
+        </div>
+        <div class="match finished">
+          <div class="match-meta">
+            <span class="match-grp">Grupo H</span>
+            <span class="status done">Finalizado</span>
+          </div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇸🇦</span><span class="tname">Arabia Saudí</span></div>
+            <span class="score">1 – 2</span>
+            <div class="team"><span class="flag">🇺🇾</span><span class="tname">Uruguay</span></div>
+          </div>
+          <span class="chip half">+3 pts · 0–1</span>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <button class="nav-item active"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+        <button class="nav-item"><span class="nav-icon">⚽</span><span>Partidos</span></button>
+        <button class="nav-item"><span class="nav-icon">📝</span><span>Mis Porras</span></button>
+        <button class="nav-item"><span class="nav-icon">🏆</span><span>Ranking</span></button>
+        <button class="nav-item"><span class="nav-icon">👥</span><span>Grupo</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       4. PARTIDOS
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Partidos</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="header-group">Los Cracks 🏆</span>
+        <div class="header-user">
+          <span class="user-mini">Álvaro</span>
+          <div class="avatar">A</div>
+        </div>
+      </div>
+      <div class="content">
+        <div style="display:flex;gap:.35rem;overflow-x:auto;padding-bottom:.5rem;margin-bottom:.65rem;scrollbar-width:none">
+          <button style="padding:.35rem .8rem;border-radius:20px;font-size:.72rem;font-weight:700;background:var(--accent);color:#000;border:1px solid var(--accent);white-space:nowrap">Próximos</button>
+          <button style="padding:.35rem .8rem;border-radius:20px;font-size:.72rem;font-weight:700;background:var(--bg-card2);color:var(--text-dim);border:1px solid var(--border);white-space:nowrap">En Vivo</button>
+          <button style="padding:.35rem .8rem;border-radius:20px;font-size:.72rem;font-weight:700;background:var(--bg-card2);color:var(--text-dim);border:1px solid var(--border);white-space:nowrap">Finalizados</button>
+          <button style="padding:.35rem .8rem;border-radius:20px;font-size:.72rem;font-weight:700;background:var(--bg-card2);color:var(--text-dim);border:1px solid var(--border);white-space:nowrap">Todos</button>
+        </div>
+        <div style="font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);padding:.25rem 0;margin-bottom:.35rem;border-bottom:1px solid var(--border)">Fase de Grupos</div>
+        <div class="match spain">
+          <span class="spain-tag">🇪🇸 +goleadores</span>
+          <div class="match-meta">
+            <span class="match-grp">Grupo H</span>
+            <span class="status upcoming">21 jun · 00:00</span>
+          </div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇪🇸</span><span class="tname">España</span></div>
+            <span class="vs">vs</span>
+            <div class="team"><span class="flag">🇸🇦</span><span class="tname">Arabia Saudí</span></div>
+          </div>
+          <span class="chip warn">⚠️ Sin porra</span>
+          <div class="city">📍 Atlanta, USA</div>
+        </div>
+        <div class="match spain">
+          <span class="spain-tag">🇪🇸 +goleadores</span>
+          <div class="match-meta">
+            <span class="match-grp">Grupo H</span>
+            <span class="status upcoming">28 jun · 04:00</span>
+          </div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇺🇾</span><span class="tname">Uruguay</span></div>
+            <span class="vs">vs</span>
+            <div class="team"><span class="flag">🇪🇸</span><span class="tname">España</span></div>
+          </div>
+          <span class="chip pend">🔮 1–2</span>
+          <div class="city">📍 Guadalajara, México</div>
+        </div>
+        <div class="match">
+          <div class="match-meta">
+            <span class="match-grp">Grupo H</span>
+            <span class="status upcoming">28 jun · 04:00</span>
+          </div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇸🇦</span><span class="tname">Arabia Saudí</span></div>
+            <span class="vs">vs</span>
+            <div class="team"><span class="flag">🇨🇻</span><span class="tname">Cabo Verde</span></div>
+          </div>
+          <span class="chip pend">🔮 2–0</span>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <button class="nav-item"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+        <button class="nav-item active"><span class="nav-icon">⚽</span><span>Partidos</span></button>
+        <button class="nav-item"><span class="nav-icon">📝</span><span>Mis Porras</span></button>
+        <button class="nav-item"><span class="nav-icon">🏆</span><span>Ranking</span></button>
+        <button class="nav-item"><span class="nav-icon">👥</span><span>Grupo</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       5. MODAL PREDICCIÓN (España)
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Hacer porra (España)</div>
+    <div class="phone" style="position:relative">
+      <!-- Fondo borroso -->
+      <div class="app-header">
+        <span class="header-group">Los Cracks 🏆</span>
+        <div class="header-user"><div class="avatar">A</div></div>
+      </div>
+      <div class="content" style="filter:blur(2px);opacity:.4">
+        <div class="match spain">
+          <div class="match-meta"><span class="match-grp">Grupo H</span></div>
+          <div class="teams">
+            <div class="team"><span class="flag">🇪🇸</span><span class="tname">España</span></div>
+            <span class="vs">vs</span>
+            <div class="team"><span class="flag">🇸🇦</span><span class="tname">Arabia Saudí</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Overlay -->
+      <div class="modal-overlay-demo"></div>
+      <!-- Modal Sheet -->
+      <div class="modal-sheet-demo">
+        <div class="modal-handle"></div>
+        <div class="modal-hdr">
+          <h3>🇪🇸 España vs Arabia Saudí 🇸🇦</h3>
+          <button class="btn-icon" style="font-size:.85rem">✕</button>
+        </div>
+        <!-- Marcador -->
+        <div class="pred-teams">
+          <div class="pred-team"><span class="pred-flag">🇪🇸</span><span class="pred-name">España</span></div>
+          <div class="score-wrap">
+            <input class="score-inp" value="2" readonly>
+            <span class="score-dash">–</span>
+            <input class="score-inp" value="0" readonly style="border-color:var(--border)">
+          </div>
+          <div class="pred-team"><span class="pred-flag">🇸🇦</span><span class="pred-name">Arabia Saudí</span></div>
+        </div>
+        <!-- Goleadores -->
+        <div class="gs-hdr">
+          <h4>⚽ Goleadores de España</h4>
+          <span class="x2-badge">+2 pts por goleador ⚽</span>
+        </div>
+        <p class="gs-hint">Selecciona jugadores y cuántos goles crees que marcarán.</p>
+        <div style="display:flex;flex-direction:column;gap:.25rem;max-height:170px;overflow-y:auto">
+          <div style="font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#6b7a99;padding:.3rem 0 .1rem;border-bottom:1px solid #1f2d44">Delanteros</div>
+          <!-- Jugador seleccionado con 2 goles -->
+          <div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .55rem;border-radius:7px;background:#0d2a1a;border:1px solid #00e676">
+            <span style="font-size:.6rem;color:#6b7a99;background:#09101f;padding:.08rem .25rem;border-radius:3px">DEL</span>
+            <span style="flex:1;font-size:.76rem;font-weight:600;color:#00e676">Lamine Yamal</span>
+            <div style="display:flex;align-items:center;gap:.25rem">
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">–</button>
+              <span style="min-width:26px;text-align:center;font-size:.78rem;font-weight:700;color:#00e676">2 ⚽</span>
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">+</button>
+            </div>
+          </div>
+          <!-- Jugador seleccionado con 1 gol -->
+          <div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .55rem;border-radius:7px;background:#0d2a1a;border:1px solid #00e676">
+            <span style="font-size:.6rem;color:#6b7a99;background:#09101f;padding:.08rem .25rem;border-radius:3px">DEL</span>
+            <span style="flex:1;font-size:.76rem;font-weight:600;color:#00e676">Nico Williams</span>
+            <div style="display:flex;align-items:center;gap:.25rem">
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">–</button>
+              <span style="min-width:26px;text-align:center;font-size:.78rem;font-weight:700;color:#00e676">1 ⚽</span>
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">+</button>
+            </div>
+          </div>
+          <!-- Jugador sin seleccionar -->
+          <div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .55rem;border-radius:7px;background:#1a2236;border:1px solid #1f2d44">
+            <span style="font-size:.6rem;color:#6b7a99;background:#09101f;padding:.08rem .25rem;border-radius:3px">DEL</span>
+            <span style="flex:1;font-size:.76rem;font-weight:500;color:#e8edf5">Álvaro Morata</span>
+            <div style="display:flex;align-items:center;gap:.25rem">
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">–</button>
+              <span style="min-width:26px;text-align:center;font-size:.78rem;font-weight:700;color:#6b7a99">0</span>
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">+</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .55rem;border-radius:7px;background:#1a2236;border:1px solid #1f2d44">
+            <span style="font-size:.6rem;color:#6b7a99;background:#09101f;padding:.08rem .25rem;border-radius:3px">MED</span>
+            <span style="flex:1;font-size:.76rem;font-weight:500;color:#e8edf5">Pedri</span>
+            <div style="display:flex;align-items:center;gap:.25rem">
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">–</button>
+              <span style="min-width:26px;text-align:center;font-size:.78rem;font-weight:700;color:#6b7a99">0</span>
+              <button style="width:22px;height:22px;border-radius:5px;background:#09101f;border:1px solid #1f2d44;color:#6b7a99;font-size:.9rem;display:flex;align-items:center;justify-content:center">+</button>
+            </div>
+          </div>
+        </div>
+        <!-- Puntos info -->
+        <div class="pts-row">
+          <div class="pts-pill"><span class="pts pts-gold">+6</span>Exacto</div>
+          <div class="pts-pill"><span class="pts pts-green">+3</span>Ganador</div>
+          <div class="pts-pill"><span class="pts pts-orange">+2⚽</span>Goleador</div>
+        </div>
+        <button class="btn-submit">✓ Confirmar Porra</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       6. LEADERBOARD
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Ranking</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="header-group">Los Cracks 🏆</span>
+        <div class="header-user">
+          <span class="user-mini">Álvaro</span>
+          <div class="avatar">A</div>
+        </div>
+      </div>
+      <div class="content">
+        <div class="lb-item">
+          <div class="lb-rank gold">🥇</div>
+          <div class="lb-av" style="background:linear-gradient(135deg,#c0392b,#e74c3c)">M</div>
+          <div class="lb-info">
+            <div class="lb-name">Miguel</div>
+            <div class="lb-sub">8 aciertos · 80% precisión</div>
+          </div>
+          <span style="font-size:.8rem">🔥🔥</span>
+          <div class="lb-pts">61</div>
+        </div>
+        <div class="lb-item me">
+          <div class="lb-rank silver">🥈</div>
+          <div class="lb-av" style="background:linear-gradient(135deg,#00e676,#006644)">A</div>
+          <div class="lb-info">
+            <div class="lb-name">Álvaro <small style="color:var(--accent)">(tú)</small></div>
+            <div class="lb-sub">7 aciertos · 73% precisión</div>
+          </div>
+          <span style="font-size:.8rem">🔥</span>
+          <div class="lb-pts">47</div>
+        </div>
+        <div class="lb-item">
+          <div class="lb-rank bronze">🥉</div>
+          <div class="lb-av" style="background:linear-gradient(135deg,#8e44ad,#6c3483)">S</div>
+          <div class="lb-info">
+            <div class="lb-name">Sara</div>
+            <div class="lb-sub">6 aciertos · 60% precisión</div>
+          </div>
+          <div class="lb-pts">39</div>
+        </div>
+        <div class="lb-item">
+          <div class="lb-rank" style="color:var(--text-dim)">#4</div>
+          <div class="lb-av" style="background:linear-gradient(135deg,#e67e22,#d35400)">J</div>
+          <div class="lb-info">
+            <div class="lb-name">Javier</div>
+            <div class="lb-sub">5 aciertos · 55% precisión</div>
+          </div>
+          <div class="lb-pts">27</div>
+        </div>
+        <div class="lb-item">
+          <div class="lb-rank" style="color:var(--text-dim)">#5</div>
+          <div class="lb-av" style="background:linear-gradient(135deg,#2980b9,#1a5276)">L</div>
+          <div class="lb-info">
+            <div class="lb-name">Laura</div>
+            <div class="lb-sub">3 aciertos · 37% precisión</div>
+          </div>
+          <div class="lb-pts">15</div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <button class="nav-item"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+        <button class="nav-item"><span class="nav-icon">⚽</span><span>Partidos</span></button>
+        <button class="nav-item"><span class="nav-icon">📝</span><span>Mis Porras</span></button>
+        <button class="nav-item active"><span class="nav-icon">🏆</span><span>Ranking</span></button>
+        <button class="nav-item"><span class="nav-icon">👥</span><span>Grupo</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       7. GRUPO
+  ══════════════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label">Grupo + Admin</div>
+    <div class="phone">
+      <div class="app-header">
+        <span class="header-group">Los Cracks 🏆</span>
+        <div class="header-user">
+          <span class="user-mini">Álvaro</span>
+          <div class="avatar">A</div>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="section-title">🏟 Tu Grupo</div>
+          <div style="font-size:1.1rem;font-weight:800">Los Cracks 🏆</div>
+          <div class="section-title" style="margin-top:.65rem">Código de invitación</div>
+          <div class="invite-box">
+            <span class="invite-code">MX2026</span>
+            <button class="btn-icon">📋</button>
+            <button class="btn-icon">📤</button>
+          </div>
+        </div>
+        <div class="section-title">Miembros (5)</div>
+        <div class="member">
+          <div class="member-av" style="background:linear-gradient(135deg,#00e676,#006644)">A</div>
+          <span class="member-name">Álvaro</span>
+          <span style="font-size:.65rem;color:var(--gold)">Admin ⭐</span>
+          <span class="member-pts">47 pts</span>
+        </div>
+        <div class="member">
+          <div class="member-av" style="background:linear-gradient(135deg,#c0392b,#e74c3c)">M</div>
+          <span class="member-name">Miguel</span>
+          <span class="member-pts">61 pts</span>
+        </div>
+        <div class="member">
+          <div class="member-av" style="background:linear-gradient(135deg,#8e44ad,#6c3483)">S</div>
+          <span class="member-name">Sara</span>
+          <span class="member-pts">39 pts</span>
+        </div>
+        <!-- Admin panel -->
+        <div class="admin-box">
+          <h3>Panel Admin ⚙️</h3>
+          <div class="admin-grid">
+            <button class="btn btn-sec">📝 Resultados</button>
+            <button class="btn btn-sec">➕ Añadir Partido</button>
+          </div>
+        </div>
+        <button class="btn btn-danger">Cerrar sesión</button>
+      </div>
+      <div class="bottom-nav">
+        <button class="nav-item"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+        <button class="nav-item"><span class="nav-icon">⚽</span><span>Partidos</span></button>
+        <button class="nav-item"><span class="nav-icon">📝</span><span>Mis Porras</span></button>
+        <button class="nav-item"><span class="nav-icon">🏆</span><span>Ranking</span></button>
+        <button class="nav-item active"><span class="nav-icon">👥</span><span>Grupo</span></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;color:#6b7a99;font-size:.8rem;margin-top:3rem">
+  Porra Mundial 2026 · Tecnología: Firebase + GitHub Pages · Sin app store necesaria
+</p>
+
+</body>
+</html>

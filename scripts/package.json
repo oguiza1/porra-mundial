@@ -1,0 +1,12 @@
+{
+  "name": "porra-notify",
+  "version": "1.0.0",
+  "description": "Script de recordatorios para Porra Mundial 2026",
+  "main": "check-and-notify.js",
+  "scripts": {
+    "start": "node check-and-notify.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

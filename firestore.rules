@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Perfil de usuario — lectura pública (auth), escritura sólo el propio usuario
+    match /users/{uid} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Grupos
+    match /groups/{groupId} {
+      // Puede leer cualquier usuario autenticado (para buscar por código)
+      allow read: if request.auth != null;
+      // Crear grupo: cualquier usuario autenticado
+      allow create: if request.auth != null
+        && request.resource.data.adminUid == request.auth.uid;
+      // Actualizar grupo: sólo el admin
+      allow update: if request.auth != null
+        && resource.data.adminUid == request.auth.uid;
+      allow delete: if false;
+
+      // Miembros del grupo
+      match /members/{uid} {
+        allow read:   if request.auth != null;
+        // El propio usuario puede escribirse a sí mismo (join)
+        allow create: if request.auth != null && request.auth.uid == uid;
+        // El propio usuario o el admin pueden actualizar
+        allow update: if request.auth != null
+          && (request.auth.uid == uid
+              || get(/databases/$(database)/documents/groups/$(groupId)).data.adminUid == request.auth.uid);
+        allow delete: if false;
+      }
+
+      // Predicciones — ID formato: {uid}_{matchId}
+      match /predictions/{predId} {
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+        // Sólo puede crear/actualizar predicciones propias, no las ajenas
+        allow create, update: if request.auth != null
+          && predId.matches(request.auth.uid + '_.*')
+          && request.resource.data.uid == request.auth.uid;
+        // El admin puede actualizar puntos tras publicar resultado
+        allow update: if request.auth != null
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.adminUid == request.auth.uid;
+        allow delete: if false;
+      }
+
+      // Resultados — sólo el admin escribe
+      match /results/{matchId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.adminUid == request.auth.uid;
+      }
+
+      // Partidos extra añadidos por el admin
+      match /matches/{matchId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.adminUid == request.auth.uid;
+      }
+    }
+  }
+}
