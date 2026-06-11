@@ -4,8 +4,7 @@
 
 import { initializeApp }          from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
 import {
-  getAuth, GoogleAuthProvider,
-  signInWithPopup, signInWithRedirect, getRedirectResult,
+  getAuth, signInAnonymously, updateProfile,
   signOut, onAuthStateChanged,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
 import {
@@ -25,7 +24,6 @@ import {
 const firebaseApp = initializeApp(FIREBASE_CONFIG);
 const auth        = getAuth(firebaseApp);
 const db          = getFirestore(firebaseApp);
-const provider    = new GoogleAuthProvider();
 
 // ── App State ─────────────────────────────────────────────
 let currentUser    = null;   // Firebase User
@@ -55,24 +53,25 @@ onAuthStateChanged(auth, async (fbUser) => {
   }
 });
 
-// On page load, check for redirect result (mobile fallback)
-getRedirectResult(auth).catch(() => {});
-
 // ── Auth ──────────────────────────────────────────────────
-async function loginWithGoogle() {
+let pendingName = null; // nombre escrito en el login, usado al crear el perfil
+
+async function loginWithName() {
+  const name = $('input-player-name').value.trim();
+  if (!name) { showToast('Escribe tu nombre para entrar', 'error'); return; }
+  pendingName = name;
   try {
-    // Try popup first; on mobile fallback to redirect
-    await signInWithPopup(auth, provider);
+    const cred = await signInAnonymously(auth);
+    await updateProfile(cred.user, { displayName: name });
   } catch (err) {
-    if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
-      await signInWithRedirect(auth, provider);
-    } else {
-      showToast('Error al iniciar sesión: ' + err.message, 'error');
-    }
+    showToast('Error al entrar: ' + err.message, 'error');
   }
 }
 
 async function logout() {
+  // Con sesión anónima, cerrar sesión destruye la cuenta: no se puede recuperar
+  const ok = confirm('⚠️ Si cierras sesión perderás tu cuenta, tus porras y tus puntos para siempre. ¿Seguro?');
+  if (!ok) return;
   unsubFns.forEach(fn => fn());
   unsubFns = [];
   currentGroupId = null;
@@ -85,19 +84,23 @@ async function logout() {
   showView('login');
 }
 
+function myName() {
+  return currentUser?.displayName || userDoc?.displayName || pendingName || 'Jugador';
+}
+
 // ── User profile ──────────────────────────────────────────
 async function loadOrCreateUser(fbUser) {
   const ref = doc(db, 'users', fbUser.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
+    const displayName = fbUser.displayName || pendingName || 'Jugador';
     await setDoc(ref, {
-      displayName: fbUser.displayName || 'Jugador',
-      email:       fbUser.email,
+      displayName,
       photoURL:    fbUser.photoURL || '',
       groupId:     null,
       createdAt:   serverTimestamp(),
     });
-    userDoc = { displayName: fbUser.displayName, email: fbUser.email, photoURL: fbUser.photoURL, groupId: null };
+    userDoc = { displayName, photoURL: fbUser.photoURL || '', groupId: null };
   } else {
     userDoc = snap.data();
   }
@@ -130,7 +133,7 @@ async function createGroup(name) {
   });
   batch.set(doc(db, 'groups', gRef.id, 'members', currentUser.uid), {
     uid:         currentUser.uid,
-    displayName: currentUser.displayName || 'Jugador',
+    displayName: myName(),
     photoURL:    currentUser.photoURL    || '',
     totalPoints: 0,
     correct:     0,
@@ -156,7 +159,7 @@ async function joinGroup(code) {
   const batch = writeBatch(db);
   batch.set(doc(db, 'groups', gDoc.id, 'members', currentUser.uid), {
     uid:         currentUser.uid,
-    displayName: currentUser.displayName || 'Jugador',
+    displayName: myName(),
     photoURL:    currentUser.photoURL    || '',
     totalPoints: 0,
     correct:     0,
@@ -199,7 +202,7 @@ async function initMainApp() {
 
 function updateHeaderUI() {
   $('header-group-name').textContent = groupData?.name || 'Porra 2026';
-  $('header-user-name').textContent  = (currentUser.displayName || '').split(' ')[0];
+  $('header-user-name').textContent  = myName().split(' ')[0];
   const avatar = $('header-avatar');
   if (currentUser.photoURL) {
     avatar.src = currentUser.photoURL;
@@ -319,7 +322,7 @@ function renderHomeStats() {
   const me = members.find(m => m.uid === currentUser.uid);
   if (!me) return;
 
-  $('home-user-name').textContent = (currentUser.displayName || 'Campeón').split(' ')[0];
+  $('home-user-name').textContent = myName().split(' ')[0];
 
   const rank = members.findIndex(m => m.uid === currentUser.uid) + 1;
   $('home-rank').textContent   = `#${rank}`;
@@ -1012,7 +1015,8 @@ async function saveFcmToken() {
 document.addEventListener('DOMContentLoaded', () => {
 
   // Login
-  $('btn-google-login').addEventListener('click', loginWithGoogle);
+  $('btn-enter').addEventListener('click', loginWithName);
+  $('input-player-name').addEventListener('keydown', e => { if (e.key === 'Enter') loginWithName(); });
 
   // Group setup
   $('btn-create-group').addEventListener('click', () => createGroup($('input-group-name').value));
