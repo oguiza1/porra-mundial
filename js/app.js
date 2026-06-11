@@ -237,6 +237,9 @@ function rebuildMatches() {
       ...(latestResults[m.id] || {}),
       status: latestResults[m.id]?.status || m.status || 'upcoming',
     }))
+    // Goleadores en todos los partidos de España, también eliminatorias
+    // (el bot rellena los cruces con los equipos reales al definirse)
+    .map(m => ({ ...m, isSpainMatch: m.home === 'España' || m.away === 'España' }))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   renderCurrentPage();
 }
@@ -305,11 +308,14 @@ function renderCurrentPage() {
 function renderHomePage() {
   renderHomeStats();
 
-  // Next match without prediction
-  const next = allMatches.find(m => m.status !== 'finished' && !myPredictions[m.id]);
+  // Próximos 3 partidos sin porra (aún predecibles)
+  const now = new Date();
+  const next = allMatches
+    .filter(m => m.status === 'upcoming' && new Date(m.date) > now && !myPredictions[m.id])
+    .slice(0, 3);
   const homeNext = $('home-next-match');
-  if (next) {
-    homeNext.innerHTML = buildMatchCard(next, false);
+  if (next.length) {
+    homeNext.innerHTML = next.map(m => buildMatchCard(m, true)).join('');
   } else {
     homeNext.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>¡Tienes todas las porras al día!</p></div>`;
   }

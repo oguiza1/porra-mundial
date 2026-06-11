@@ -8,13 +8,12 @@
 // ============================================================
 
 const admin = require('firebase-admin');
-const { matches: ALL_MATCHES, spainMatchIds } = require('./matches.json');
+const { matches: ALL_MATCHES } = require('./matches.json');
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-const SPAIN_IDS  = new Set(spainMatchIds);
 const KNOWN_IDS  = new Set(ALL_MATCHES.map(m => m.id));
 const BASE_BY_ID = Object.fromEntries(ALL_MATCHES.map(m => [m.id, m]));
 
@@ -146,9 +145,9 @@ async function run() {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    // Goleadores: solo en los 3 partidos de España de fase de grupos
-    if (SPAIN_IDS.has(e.id)) {
-      const spainTeam = [home, away].find(t => t.team.displayName === 'Spain');
+    // Goleadores: en cualquier partido donde juegue España
+    const spainTeam = [home, away].find(t => t.team.displayName === 'Spain');
+    if (spainTeam) {
       const scorers = {};
       for (const det of c.details || []) {
         if (!det.scoringPlay) continue;
@@ -162,7 +161,7 @@ async function run() {
       data.goalscorers = Object.entries(scorers).map(([name, goals]) => ({ name, goals }));
     }
 
-    updates.push({ matchId: e.id, data, finished: state === 'post' });
+    updates.push({ matchId: e.id, data, finished: state === 'post', isSpainMatch: !!spainTeam });
     console.log(`  ${e.shortName}: ${data.homeScore}-${data.awayScore} (${data.status})` +
       (data.goalscorers ? ` goleadores: ${JSON.stringify(data.goalscorers)}` : ''));
   }
@@ -204,7 +203,7 @@ async function run() {
     }
 
     let needsRecalc = false;
-    for (const { matchId, data, finished } of updates) {
+    for (const { matchId, data, finished, isSpainMatch } of updates) {
       const existing = await resCol.doc(matchId).get();
       if (existing.exists && existing.data().pointsComputed) continue; // ya cerrado y puntuado
 
@@ -216,7 +215,7 @@ async function run() {
           homeScore:    data.homeScore,
           awayScore:    data.awayScore,
           goalscorers:  data.goalscorers || [],
-          isSpainMatch: SPAIN_IDS.has(matchId),
+          isSpainMatch,
         };
         const predsSnap = await db.collection('groups').doc(groupId)
           .collection('predictions').where('matchId', '==', matchId).get();
