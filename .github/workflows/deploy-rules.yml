@@ -20,10 +20,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Instalar dependencias
+        run: npm install --production
+        working-directory: scripts
+
       - name: Desplegar reglas
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/sa.json
-          npx -y firebase-tools deploy --only firestore:rules --project porra-mundial-8f63e --non-interactive
+        run: node deploy-rules.js
+        working-directory: scripts
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
