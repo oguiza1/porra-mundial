@@ -157,6 +157,7 @@ function leaveToChooser() {
   allPredictions = [];
   members = [];
   isAdmin = false;
+  selectedPredsUid = null;
   showGroupChooser();
 }
 
@@ -446,34 +447,58 @@ function renderMatchesPage() {
   $('matches-list').innerHTML = html;
 }
 
-// ── Porras (las mías + las de todos) ──────────────────────
+// ── Porras (pestaña por participante) ─────────────────────
+let selectedPredsUid = null;   // miembro seleccionado en la pestaña Porras
+
 function renderMyPredictionsPage() {
-  const now = new Date();
+  if (!members.length) {
+    $('preds-member-tabs').innerHTML = '';
+    $('my-predictions-list').innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>Aún no hay miembros en el grupo</p></div>`;
+    return;
+  }
+
   // Yo primero, el resto por orden del ranking
   const ordered = [...members].sort((a, b) =>
     a.uid === currentUser.uid ? -1 : b.uid === currentUser.uid ? 1 : 0);
 
-  let html = '';
-  for (const mem of ordered) {
-    const isMe = mem.uid === currentUser.uid;
-    const preds = allPredictions
-      .filter(p => p.uid === mem.uid)
-      .map(p => ({ p, m: allMatches.find(x => x.id === p.matchId) }))
-      // Las porras ajenas sólo se ven cuando el partido ya ha empezado
-      .filter(({ m }) => m && (isMe || m.status !== 'upcoming' || new Date(m.date) <= now))
-      .sort((a, b) => new Date(a.m.date) - new Date(b.m.date));
+  if (!selectedPredsUid || !members.some(m => m.uid === selectedPredsUid)) {
+    selectedPredsUid = currentUser.uid;
+  }
 
-    html += `<div class="section-title">${isMe ? '📝 Tus porras' : '👤 ' + escHtml(mem.displayName)}${preds.length ? ` (${preds.length})` : ''}</div>`;
-    if (!preds.length) {
-      html += `<div class="empty-state" style="padding:.75rem"><p style="font-size:.8rem">${
-        isMe ? 'Aún no has hecho ninguna porra. ¡Ve a Partidos y empieza a predecir!'
-             : 'Sus porras se mostrarán cuando empiece cada partido 🤫'}</p></div>`;
-      continue;
-    }
+  // Pestañas con los nombres de los participantes
+  $('preds-member-tabs').innerHTML = ordered.map(mem => {
+    const isMe = mem.uid === currentUser.uid;
+    const label = isMe ? 'Tú' : escHtml(mem.displayName.split(' ')[0]);
+    return `<button class="tab${mem.uid === selectedPredsUid ? ' active' : ''}"
+      onclick="selectPredsMember('${mem.uid}')">${label}</button>`;
+  }).join('');
+
+  // Porras del miembro seleccionado
+  const mem  = members.find(m => m.uid === selectedPredsUid);
+  const isMe = selectedPredsUid === currentUser.uid;
+  const now  = new Date();
+  const preds = allPredictions
+    .filter(p => p.uid === selectedPredsUid)
+    .map(p => ({ p, m: allMatches.find(x => x.id === p.matchId) }))
+    // Las porras ajenas sólo se ven cuando el partido ya ha empezado
+    .filter(({ m }) => m && (isMe || m.status !== 'upcoming' || new Date(m.date) <= now))
+    .sort((a, b) => new Date(a.m.date) - new Date(b.m.date));
+
+  let html = `<div class="section-title">${isMe ? '📝 Tus porras' : '👤 Porras de ' + escHtml(mem.displayName)}${preds.length ? ` (${preds.length})` : ''}</div>`;
+  if (!preds.length) {
+    html += `<div class="empty-state"><div class="icon">📝</div><p>${
+      isMe ? 'Aún no has hecho ninguna porra.<br>¡Ve a Partidos y empieza a predecir!'
+           : 'Sin porras visibles.<br>Las porras de los demás se muestran cuando empieza cada partido 🤫'}</p></div>`;
+  } else {
     html += preds.map(({ p, m }) => buildPredRow(p, m)).join('');
   }
-  $('my-predictions-list').innerHTML = html || `<div class="empty-state"><div class="icon">📝</div><p>Aún no hay porras en el grupo</p></div>`;
+  $('my-predictions-list').innerHTML = html;
 }
+
+window.selectPredsMember = function(uid) {
+  selectedPredsUid = uid;
+  renderMyPredictionsPage();
+};
 
 function buildPredRow(p, m) {
   const isDone = m.status === 'finished';
