@@ -12,7 +12,7 @@ import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy,
   getDocs, onSnapshot,
-  writeBatch, serverTimestamp,
+  writeBatch, serverTimestamp, arrayUnion, arrayRemove,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 import { FIREBASE_CONFIG, VAPID_KEY } from './config.js';
 import { BASE_MATCHES, SPAIN_SQUAD, PHASES } from './data.js?v=3';
@@ -31,7 +31,8 @@ let userDoc        = null;   // Firestore user profile
 let currentGroupId = null;
 let groupData      = null;
 let allMatches     = [];     // merged: BASE_MATCHES + admin-added + results
-let myPredictions  = {};     // { matchId: predictionDoc }
+let myPredictions  = {};     // { matchId: predictionDoc } (sólo las mías)
+let allPredictions = [];     // todas las porras del grupo
 let members        = [];     // [{uid, displayName, photoURL, totalPoints, …}]
 let isAdmin        = false;
 let selectedGoalscorers = {};    // { playerName: numGoals }
@@ -78,6 +79,7 @@ async function logout() {
   groupData = null;
   allMatches = [];
   myPredictions = {};
+  allPredictions = [];
   members = [];
   isAdmin = false;
   await signOut(auth);
@@ -97,20 +99,65 @@ async function loadOrCreateUser(fbUser) {
     await setDoc(ref, {
       displayName,
       photoURL:    fbUser.photoURL || '',
-      groupId:     null,
+      groupIds:    [],
       createdAt:   serverTimestamp(),
     });
-    userDoc = { displayName, photoURL: fbUser.photoURL || '', groupId: null };
+    userDoc = { displayName, photoURL: fbUser.photoURL || '', groupIds: [] };
   } else {
     userDoc = snap.data();
   }
 
-  if (userDoc.groupId) {
-    currentGroupId = userDoc.groupId;
-    await initMainApp();
-  } else {
-    showView('group-setup');
+  // Migración: cuentas antiguas con un solo groupId → lista groupIds
+  if (!userDoc.groupIds) {
+    userDoc.groupIds = userDoc.groupId ? [userDoc.groupId] : [];
+    await updateDoc(ref, { groupIds: userDoc.groupIds });
   }
+
+  await showGroupChooser();
+}
+
+// ── Selector de grupo ─────────────────────────────────────
+async function showGroupChooser() {
+  const ids  = userDoc?.groupIds || [];
+  const card = $('my-groups-card');
+  showView('group-setup');
+  if (!ids.length) { card.style.display = 'none'; return; }
+
+  card.style.display = 'block';
+  $('my-groups-list').innerHTML = '<p style="color:var(--text-dim);font-size:.8rem">Cargando tus grupos…</p>';
+
+  const rows = [];
+  for (const id of ids) {
+    try {
+      const snap = await getDoc(doc(db, 'groups', id));
+      if (snap.exists()) rows.push({ id, name: snap.data().name });
+    } catch (_) { /* grupo inaccesible: lo ignoramos */ }
+  }
+  $('my-groups-list').innerHTML = rows.length
+    ? rows.map(r => `
+        <button class="btn btn-primary btn-full" style="margin-bottom:.5rem" onclick="enterGroup('${r.id}')">
+          ⚽ ${escHtml(r.name)}
+        </button>`).join('')
+    : '<p style="color:var(--text-dim);font-size:.8rem">No se encontraron tus grupos</p>';
+}
+
+window.enterGroup = async function(groupId) {
+  currentGroupId = groupId;
+  await initMainApp();
+};
+
+// Salir del grupo actual (sin cerrar sesión) y volver al selector
+function leaveToChooser() {
+  unsubFns.forEach(fn => fn());
+  unsubFns = [];
+  currentGroupId = null;
+  groupData = null;
+  allMatches = [];
+  myPredictions = {};
+  allPredictions = [];
+  members = [];
+  isAdmin = false;
+  showGroupChooser();
 }
 
 // ── Group Management ──────────────────────────────────────
@@ -141,11 +188,11 @@ async function createGroup(name) {
     streak:      0,
     joinedAt:    serverTimestamp(),
   });
-  batch.update(doc(db, 'users', currentUser.uid), { groupId: gRef.id });
+  batch.update(doc(db, 'users', currentUser.uid), { groupIds: arrayUnion(gRef.id) });
 
   await batch.commit();
   currentGroupId = gRef.id;
-  userDoc.groupId = gRef.id;
+  userDoc.groupIds = [...(userDoc.groupIds || []), gRef.id];
   await initMainApp();
 }
 
@@ -155,23 +202,29 @@ async function joinGroup(code) {
   const snap = await getDocs(q);
   if (snap.empty) { showToast('Código no encontrado', 'error'); return; }
 
-  const gDoc  = snap.docs[0];
+  const gDoc   = snap.docs[0];
+  const memRef = doc(db, 'groups', gDoc.id, 'members', currentUser.uid);
+  const memSnap = await getDoc(memRef);
+
   const batch = writeBatch(db);
-  batch.set(doc(db, 'groups', gDoc.id, 'members', currentUser.uid), {
-    uid:         currentUser.uid,
-    displayName: myName(),
-    photoURL:    currentUser.photoURL    || '',
-    totalPoints: 0,
-    correct:     0,
-    predictions: 0,
-    streak:      0,
-    joinedAt:    serverTimestamp(),
-  });
-  batch.update(doc(db, 'users', currentUser.uid), { groupId: gDoc.id });
+  // Si ya era miembro (p.ej. se une de nuevo), no resetear sus puntos
+  if (!memSnap.exists()) {
+    batch.set(memRef, {
+      uid:         currentUser.uid,
+      displayName: myName(),
+      photoURL:    currentUser.photoURL    || '',
+      totalPoints: 0,
+      correct:     0,
+      predictions: 0,
+      streak:      0,
+      joinedAt:    serverTimestamp(),
+    });
+  }
+  batch.update(doc(db, 'users', currentUser.uid), { groupIds: arrayUnion(gDoc.id) });
   await batch.commit();
 
   currentGroupId = gDoc.id;
-  userDoc.groupId = gDoc.id;
+  if (!userDoc.groupIds?.includes(gDoc.id)) userDoc.groupIds = [...(userDoc.groupIds || []), gDoc.id];
   await initMainApp();
 }
 
@@ -196,7 +249,7 @@ async function initMainApp() {
   // Set up real-time listeners
   listenMembers();
   listenResults();
-  listenMyPredictions();
+  listenPredictions();
   listenExtraMatches();
 }
 
@@ -261,12 +314,14 @@ function listenResults() {
   unsubFns.push(unsub);
 }
 
-function listenMyPredictions() {
+function listenPredictions() {
   const ref = collection(db, 'groups', currentGroupId, 'predictions');
-  const q   = query(ref, where('uid', '==', currentUser.uid));
-  const unsub = onSnapshot(q, snap => {
-    myPredictions = {};
-    snap.forEach(d => { myPredictions[d.data().matchId] = d.data(); });
+  const unsub = onSnapshot(ref, snap => {
+    allPredictions = snap.docs.map(d => d.data());
+    myPredictions  = {};
+    allPredictions
+      .filter(p => p.uid === currentUser.uid)
+      .forEach(p => { myPredictions[p.matchId] = p; });
     renderCurrentPage();
   });
   unsubFns.push(unsub);
@@ -391,15 +446,105 @@ function renderMatchesPage() {
   $('matches-list').innerHTML = html;
 }
 
-// ── My Predictions ────────────────────────────────────────
+// ── Porras (las mías + las de todos) ──────────────────────
 function renderMyPredictionsPage() {
-  const predicted = allMatches.filter(m => myPredictions[m.id]);
-  if (predicted.length === 0) {
-    $('my-predictions-list').innerHTML = `<div class="empty-state"><div class="icon">📝</div><p>Aún no has hecho ninguna porra.<br>¡Ve a Partidos y empieza a predecir!</p></div>`;
-    return;
+  const now = new Date();
+  // Yo primero, el resto por orden del ranking
+  const ordered = [...members].sort((a, b) =>
+    a.uid === currentUser.uid ? -1 : b.uid === currentUser.uid ? 1 : 0);
+
+  let html = '';
+  for (const mem of ordered) {
+    const isMe = mem.uid === currentUser.uid;
+    const preds = allPredictions
+      .filter(p => p.uid === mem.uid)
+      .map(p => ({ p, m: allMatches.find(x => x.id === p.matchId) }))
+      // Las porras ajenas sólo se ven cuando el partido ya ha empezado
+      .filter(({ m }) => m && (isMe || m.status !== 'upcoming' || new Date(m.date) <= now))
+      .sort((a, b) => new Date(a.m.date) - new Date(b.m.date));
+
+    html += `<div class="section-title">${isMe ? '📝 Tus porras' : '👤 ' + escHtml(mem.displayName)}${preds.length ? ` (${preds.length})` : ''}</div>`;
+    if (!preds.length) {
+      html += `<div class="empty-state" style="padding:.75rem"><p style="font-size:.8rem">${
+        isMe ? 'Aún no has hecho ninguna porra. ¡Ve a Partidos y empieza a predecir!'
+             : 'Sus porras se mostrarán cuando empiece cada partido 🤫'}</p></div>`;
+      continue;
+    }
+    html += preds.map(({ p, m }) => buildPredRow(p, m)).join('');
   }
-  $('my-predictions-list').innerHTML = predicted.map(m => buildMatchCard(m, true)).join('');
+  $('my-predictions-list').innerHTML = html || `<div class="empty-state"><div class="icon">📝</div><p>Aún no hay porras en el grupo</p></div>`;
 }
+
+function buildPredRow(p, m) {
+  const isDone = m.status === 'finished';
+  let chip;
+  if (isDone) {
+    const pts = p.points;
+    chip = pts === null || pts === undefined
+      ? `<span class="prediction-chip waiting" style="margin-top:0">🔮</span>`
+      : pts > 0
+        ? `<span class="prediction-chip ${pts >= 6 ? 'correct6' : 'correct3'}" style="margin-top:0">+${pts} pts</span>`
+        : `<span class="prediction-chip wrong" style="margin-top:0">0 pts</span>`;
+  } else if (m.status === 'live' || new Date(m.date) <= new Date()) {
+    chip = `<span class="prediction-chip waiting" style="margin-top:0">🔒</span>`;
+  } else {
+    chip = `<span class="prediction-chip editable" style="margin-top:0">✏️</span>`;
+  }
+  const gs = (p.goalscorers || [])
+    .map(g => typeof g === 'string' ? g : `${g.name}${g.goals > 1 ? ' x' + g.goals : ''}`)
+    .join(', ');
+  const real = isDone || m.status === 'live' ? ` <small style="color:var(--text-dim)">(real ${m.homeScore ?? '?'}–${m.awayScore ?? '?'})</small>` : '';
+
+  return `
+  <div class="member-item" style="flex-wrap:wrap">
+    <span class="member-name" style="font-size:.8rem">
+      ${m.homeFlag} ${escHtml(m.home)} <b>${p.homeScore}–${p.awayScore}</b> ${escHtml(m.away)} ${m.awayFlag}${p.surprisePick ? ' 🎲' : ''}${real}
+    </span>
+    ${chip}
+    ${gs ? `<div style="width:100%;font-size:.7rem;color:var(--text-dim)">⚽ ${escHtml(gs)}</div>` : ''}
+  </div>`;
+}
+
+// ── Ver porras de un partido (cuando ya ha empezado) ──────
+window.openViewPredsModal = function(matchId) {
+  const match = allMatches.find(m => m.id === matchId);
+  if (!match) return;
+
+  $('view-preds-title').textContent = `${match.homeFlag} ${match.home} vs ${match.away} ${match.awayFlag}`;
+  $('view-preds-score').textContent = match.homeScore !== null && match.homeScore !== undefined
+    ? `${match.homeScore} – ${match.awayScore}${match.status === 'live' ? ' 🔴' : ''}`
+    : '';
+
+  const byUid = {};
+  allPredictions.filter(p => p.matchId === matchId).forEach(p => { byUid[p.uid] = p; });
+
+  $('view-preds-list').innerHTML = members.map(mem => {
+    const p = byUid[mem.uid];
+    if (!p) {
+      return `<div class="member-item">
+        <span class="member-name">${escHtml(mem.displayName)}</span>
+        <span class="prediction-chip nopred" style="margin-top:0">Sin porra</span>
+      </div>`;
+    }
+    const pts = p.points;
+    const chip = pts === null || pts === undefined ? ''
+      : pts > 0
+        ? `<span class="prediction-chip ${pts >= 6 ? 'correct6' : 'correct3'}" style="margin-top:0">+${pts} pts</span>`
+        : `<span class="prediction-chip wrong" style="margin-top:0">0 pts</span>`;
+    const gs = (p.goalscorers || [])
+      .map(g => typeof g === 'string' ? g : `${g.name}${g.goals > 1 ? ' x' + g.goals : ''}`)
+      .join(', ');
+    return `<div class="member-item" style="flex-wrap:wrap">
+      <span class="member-name">${escHtml(mem.displayName)}</span>
+      <b style="font-size:.95rem">${p.homeScore}–${p.awayScore}</b>${p.surprisePick ? ' 🎲' : ''}
+      ${chip}
+      ${gs ? `<div style="width:100%;font-size:.7rem;color:var(--text-dim)">⚽ ${escHtml(gs)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  $('modal-view-preds').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+};
 
 // ── Leaderboard ───────────────────────────────────────────
 function renderLeaderboard() {
@@ -507,7 +652,10 @@ function buildMatchCard(match, showPrediction) {
   const spainBadge = match.isSpainMatch ? `<span class="spain-badge">🇪🇸 +goleadores</span>` : '';
   const groupLabel = match.group ? `Grupo ${match.group}` : PHASES[match.phase] || '';
 
-  const clickAttr = canPredict ? `onclick="openPredictionModal('${match.id}')"` : '';
+  // Antes de empezar: hacer porra. Una vez empezado: ver las porras de todos
+  const clickAttr = canPredict
+    ? `onclick="openPredictionModal('${match.id}')"`
+    : `onclick="openViewPredsModal('${match.id}')"`;
 
   return `
   <div class="match-card${match.isSpainMatch ? ' spain' : ''}${isDone ? ' finished' : ''}${isLive ? ' live' : ''}" ${clickAttr}>
@@ -820,13 +968,10 @@ window.kickMember = async function(uid) {
 // Si me han expulsado, salir del grupo en este dispositivo
 async function handleKicked() {
   showToast('El administrador te ha expulsado del grupo', 'error');
-  try { await updateDoc(doc(db, 'users', currentUser.uid), { groupId: null }); } catch (_) {}
-  unsubFns.forEach(fn => fn());
-  unsubFns = [];
-  currentGroupId = null;
-  groupData = null;
-  if (userDoc) userDoc.groupId = null;
-  showView('group-setup');
+  const kickedFrom = currentGroupId;
+  try { await updateDoc(doc(db, 'users', currentUser.uid), { groupIds: arrayRemove(kickedFrom) }); } catch (_) {}
+  if (userDoc?.groupIds) userDoc.groupIds = userDoc.groupIds.filter(id => id !== kickedFrom);
+  leaveToChooser();
 }
 
 // ── Admin: Eliminar Porras ────────────────────────────────
@@ -1229,7 +1374,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Group page actions
   $('btn-copy-invite').addEventListener('click', copyInviteCode);
   $('btn-share-invite').addEventListener('click', shareInviteCode);
+  $('btn-switch-group').addEventListener('click', leaveToChooser);
   $('btn-logout-main').addEventListener('click', logout);
+
+  // View predictions modal
+  const closeViewModal = () => {
+    $('modal-view-preds').classList.add('hidden');
+    document.body.style.overflow = '';
+  };
+  $('btn-close-view-modal').addEventListener('click', closeViewModal);
+  $('modal-view-overlay').addEventListener('click', closeViewModal);
 
   // Score inputs: no negative, clamp to 0-20
   document.querySelectorAll('.score-input').forEach(input => {

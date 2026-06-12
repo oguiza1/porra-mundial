@@ -179,7 +179,7 @@ a      { color: var(--accent); text-decoration: none; }
 }
 .match-card:active { background: var(--bg-card2); }
 .match-card.spain { border-left: 3px solid var(--accent); }
-.match-card.finished { opacity: .75; cursor: default; }
+.match-card.finished { opacity: .75; }
 .match-card.live { border-left: 3px solid var(--live); }
 
 .match-meta {

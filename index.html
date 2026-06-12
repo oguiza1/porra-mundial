@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Porra 2026">
   <meta name="description" content="Porra del Mundial 2026 con tus amigos">
   <title>Porra Mundial 2026 🏆</title>
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=8">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -39,6 +39,12 @@
     </div>
 
     <div class="setup-options">
+      <!-- Mis grupos (selector multi-grupo) -->
+      <div class="card" id="my-groups-card" style="display:none">
+        <div class="section-title">👥 Tus grupos</div>
+        <div id="my-groups-list"></div>
+      </div>
+
       <!-- Crear -->
       <div class="card">
         <div class="section-title">➕ Crear Grupo</div>
@@ -161,6 +167,7 @@
         </div>
 
         <div style="margin-top:1.5rem">
+          <button class="btn btn-secondary btn-full" id="btn-switch-group" style="margin-bottom:.5rem">🔁 Cambiar de grupo</button>
           <button class="btn btn-danger btn-full" id="btn-logout-main">Cerrar sesión</button>
         </div>
       </div>
@@ -179,7 +186,7 @@
       </button>
       <button class="nav-item" data-page="predictions">
         <span class="nav-icon">📝</span>
-        <span>Mis Porras</span>
+        <span>Porras</span>
       </button>
       <button class="nav-item" data-page="leaderboard">
         <span class="nav-icon">🏆</span>
@@ -385,6 +392,22 @@
 </div>
 
 <!-- ════════════════════════════════════════════════
+     MODAL: VER PORRAS DE UN PARTIDO
+════════════════════════════════════════════════ -->
+<div id="modal-view-preds" class="modal hidden">
+  <div class="modal-overlay" id="modal-view-overlay"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3 id="view-preds-title">Porras</h3>
+      <button class="btn-icon" id="btn-close-view-modal">✕</button>
+    </div>
+    <div id="view-preds-score" style="text-align:center;font-size:1.3rem;font-weight:800;margin-bottom:1rem"></div>
+    <div id="view-preds-list"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
      MODAL: ELIMINAR PORRAS (Admin)
 ════════════════════════════════════════════════ -->
 <div id="modal-del-preds" class="modal hidden">
@@ -414,6 +437,6 @@
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/app.js?v=7"></script>
+<script type="module" src="js/app.js?v=8"></script>
 </body>
 </html>
