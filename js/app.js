@@ -788,6 +788,88 @@ async function saveMatchResult() {
   }
 }
 
+// ── Admin: Eliminar Porras ────────────────────────────────
+let delPredsByMatch = {};   // { matchId: [{...pred, _docId}] }
+
+async function openDeletePredsModal() {
+  try {
+    const snap = await getDocs(collection(db, 'groups', currentGroupId, 'predictions'));
+    delPredsByMatch = {};
+    snap.forEach(d => {
+      const p = d.data();
+      (delPredsByMatch[p.matchId] = delPredsByMatch[p.matchId] || []).push({ ...p, _docId: d.id });
+    });
+  } catch (err) {
+    showToast('Error al cargar porras: ' + err.message, 'error');
+    return;
+  }
+
+  renderDelMatchList();
+  $('del-step-select').style.display = 'block';
+  $('del-step-list').style.display   = 'none';
+  $('modal-del-preds').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function renderDelMatchList() {
+  const withPreds = allMatches.filter(m => delPredsByMatch[m.id]?.length);
+  if (!withPreds.length) {
+    $('del-match-list').innerHTML = `<div class="empty-state"><p>Nadie ha hecho ninguna porra todavía.</p></div>`;
+    return;
+  }
+  $('del-match-list').innerHTML = withPreds.map(m => `
+    <div class="result-match-item" onclick="selectDelMatch('${m.id}')">
+      <div class="result-teams-mini">${m.homeFlag} ${escHtml(m.home)} vs ${escHtml(m.away)} ${m.awayFlag}</div>
+      <span style="color:var(--text-dim);font-size:.75rem">${delPredsByMatch[m.id].length} porra(s)</span>
+    </div>
+  `).join('');
+}
+
+window.selectDelMatch = function(matchId) {
+  const match = allMatches.find(m => m.id === matchId);
+  const preds = delPredsByMatch[matchId] || [];
+  if (!match || !preds.length) return;
+
+  $('del-match-title').textContent = `${match.homeFlag} ${match.home} vs ${match.away} ${match.awayFlag}`;
+  $('del-preds-list').innerHTML = preds.map(p => {
+    const member = members.find(m => m.uid === p.uid);
+    const name   = member?.displayName || 'Jugador';
+    return `
+    <div class="member-item">
+      <span class="member-name">${escHtml(name)}</span>
+      <span style="color:var(--text-dim);font-size:.8rem">${p.homeScore}–${p.awayScore}</span>
+      <button class="btn btn-danger btn-sm" onclick="deletePrediction('${escAttr(p._docId)}', '${matchId}')">🗑</button>
+    </div>`;
+  }).join('');
+
+  $('del-step-select').style.display = 'none';
+  $('del-step-list').style.display   = 'block';
+};
+
+window.deletePrediction = async function(docId, matchId) {
+  const pred   = (delPredsByMatch[matchId] || []).find(p => p._docId === docId);
+  const member = members.find(m => m.uid === pred?.uid);
+  if (!confirm(`¿Eliminar la porra de ${member?.displayName || 'este jugador'}?`)) return;
+
+  try {
+    await deleteDoc(doc(db, 'groups', currentGroupId, 'predictions', docId));
+    delPredsByMatch[matchId] = delPredsByMatch[matchId].filter(p => p._docId !== docId);
+    await recalculateMemberPoints();
+    showToast('Porra eliminada', 'success');
+
+    if (delPredsByMatch[matchId].length) {
+      selectDelMatch(matchId);
+    } else {
+      delete delPredsByMatch[matchId];
+      renderDelMatchList();
+      $('del-step-select').style.display = 'block';
+      $('del-step-list').style.display   = 'none';
+    }
+  } catch (err) {
+    showToast('Error al eliminar: ' + err.message, 'error');
+  }
+};
+
 // ── Admin: Add Match ──────────────────────────────────────
 async function saveNewMatch() {
   const home     = $('add-home').value.trim();
@@ -1073,6 +1155,19 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-res-back').addEventListener('click', () => {
     $('res-step-select').style.display = 'block';
     $('res-step-form').style.display   = 'none';
+  });
+
+  // Delete predictions modal
+  $('btn-open-del-preds').addEventListener('click', openDeletePredsModal);
+  const closeDelModal = () => {
+    $('modal-del-preds').classList.add('hidden');
+    document.body.style.overflow = '';
+  };
+  $('btn-close-del-modal').addEventListener('click', closeDelModal);
+  $('modal-del-overlay').addEventListener('click', closeDelModal);
+  $('btn-del-back').addEventListener('click', () => {
+    $('del-step-select').style.display = 'block';
+    $('del-step-list').style.display   = 'none';
   });
 
   // Add match modal

@@ -9,8 +9,10 @@
   <meta name="apple-mobile-web-app-title" content="Porra 2026">
   <meta name="description" content="Porra del Mundial 2026 con tus amigos">
   <title>Porra Mundial 2026 🏆</title>
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=6">
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
 </head>
 <body>
 <div id="app">
@@ -153,6 +155,7 @@
             <div class="admin-btn-grid">
               <button class="btn btn-secondary btn-sm" id="btn-open-results">📝 Resultados</button>
               <button class="btn btn-secondary btn-sm" id="btn-open-add-match">➕ Añadir Partido</button>
+              <button class="btn btn-secondary btn-sm" id="btn-open-del-preds">🗑 Eliminar Porras</button>
             </div>
           </div>
         </div>
@@ -381,9 +384,36 @@
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════
+     MODAL: ELIMINAR PORRAS (Admin)
+════════════════════════════════════════════════ -->
+<div id="modal-del-preds" class="modal hidden">
+  <div class="modal-overlay" id="modal-del-overlay"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>Eliminar Porras</h3>
+      <button class="btn-icon" id="btn-close-del-modal">✕</button>
+    </div>
+    <!-- Step 1: seleccionar partido -->
+    <div id="del-step-select">
+      <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:.75rem">Selecciona un partido con porras:</p>
+      <div id="del-match-list"></div>
+    </div>
+    <!-- Step 2: lista de porras del partido -->
+    <div id="del-step-list" style="display:none">
+      <p id="del-match-title" style="font-size:.9rem;font-weight:700;margin-bottom:.75rem"></p>
+      <div id="del-preds-list"></div>
+      <button class="btn btn-secondary btn-full btn-sm" id="btn-del-back" style="margin-top:.5rem">
+        ← Volver
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/app.js?v=5"></script>
+<script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>
