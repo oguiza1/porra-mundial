@@ -217,6 +217,11 @@ function listenMembers() {
   const ref = collection(db, 'groups', currentGroupId, 'members');
   const unsub = onSnapshot(query(ref, orderBy('totalPoints', 'desc')), snap => {
     members = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    // Ya no estoy en el grupo → el admin me ha expulsado
+    if (!snap.empty && !members.some(m => m.uid === currentUser?.uid)) {
+      handleKicked();
+      return;
+    }
     renderLeaderboard();
     renderGroupPage();
     renderHomeStats();
@@ -441,6 +446,9 @@ function renderGroupPage() {
       <span class="member-name">${escHtml(m.displayName)}</span>
       ${groupData.adminUid === m.uid ? '<span style="font-size:.7rem;color:var(--gold)">Admin ⭐</span>' : ''}
       <span class="member-pts">${m.totalPoints || 0} pts</span>
+      ${isAdmin && m.uid !== currentUser.uid
+        ? `<button class="btn-icon" style="color:#f87171" title="Expulsar" onclick="kickMember('${m.uid}')">✕</button>`
+        : ''}
     </div>
   `).join('');
 
@@ -786,6 +794,39 @@ async function saveMatchResult() {
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
   }
+}
+
+// ── Admin: Expulsar miembro ───────────────────────────────
+window.kickMember = async function(uid) {
+  const member = members.find(m => m.uid === uid);
+  if (!member) return;
+  if (!confirm(`¿Expulsar a ${member.displayName} del grupo? Se borrarán también todas sus porras.`)) return;
+
+  try {
+    // Borrar todas sus porras del grupo
+    const predsSnap = await getDocs(
+      query(collection(db, 'groups', currentGroupId, 'predictions'), where('uid', '==', uid))
+    );
+    const batch = writeBatch(db);
+    predsSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(doc(db, 'groups', currentGroupId, 'members', uid));
+    await batch.commit();
+    showToast(`${member.displayName} expulsado del grupo`, 'success');
+  } catch (err) {
+    showToast('Error al expulsar: ' + err.message, 'error');
+  }
+};
+
+// Si me han expulsado, salir del grupo en este dispositivo
+async function handleKicked() {
+  showToast('El administrador te ha expulsado del grupo', 'error');
+  try { await updateDoc(doc(db, 'users', currentUser.uid), { groupId: null }); } catch (_) {}
+  unsubFns.forEach(fn => fn());
+  unsubFns = [];
+  currentGroupId = null;
+  groupData = null;
+  if (userDoc) userDoc.groupId = null;
+  showView('group-setup');
 }
 
 // ── Admin: Eliminar Porras ────────────────────────────────
