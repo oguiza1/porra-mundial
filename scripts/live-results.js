@@ -110,15 +110,10 @@ async function recalculateMemberPoints(groupId) {
   await batch.commit();
 }
 
-// ── Main ──────────────────────────────────────────────────
-async function run() {
+// ── Una pasada de actualización ───────────────────────────
+// Devuelve true si hay algún partido en juego ahora mismo.
+async function cycle() {
   const now = new Date();
-
-  // Fuera del torneo no hay nada que hacer
-  if (now < new Date('2026-06-10') || now > new Date('2026-07-21')) {
-    console.log('Fuera de las fechas del Mundial. Nada que hacer.');
-    return;
-  }
 
   // Calendario completo del torneo en una sola petición
   const url = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200';
@@ -187,7 +182,9 @@ async function run() {
     }
   }
 
-  if (!updates.length && !nameUpdates.length) { console.log('Sin cambios.'); return; }
+  const anyLive = events.some(e => e.competitions[0].status?.type?.state === 'in');
+
+  if (!updates.length && !nameUpdates.length) { console.log('Sin cambios.'); return anyLive; }
 
   // Aplicar a todos los grupos
   const groupsSnap = await db.collection('groups').get();
@@ -231,7 +228,30 @@ async function run() {
     if (needsRecalc) await recalculateMemberPoints(groupId);
   }
 
-  console.log('Proceso completado.');
+  console.log('Pasada completada.');
+  return anyLive;
+}
+
+// ── Main ──────────────────────────────────────────────────
+// El cron de GitHub Actions corre cada 5 min (su mínimo). Para
+// actualizar más rápido, mientras haya partidos en vivo cada
+// ejecución repite pasadas cada 60s hasta solapar con la siguiente.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function run() {
+  if (new Date() < new Date('2026-06-10') || new Date() > new Date('2026-07-21')) {
+    console.log('Fuera de las fechas del Mundial. Nada que hacer.');
+    return;
+  }
+
+  const deadline = Date.now() + 4.5 * 60 * 1000;
+  while (true) {
+    const anyLive = await cycle();
+    if (!anyLive) { console.log('No hay partidos en vivo.'); break; }
+    if (Date.now() > deadline) { console.log('Relevo a la siguiente ejecución.'); break; }
+    console.log('Partido(s) en vivo → nueva pasada en 60s…');
+    await sleep(60 * 1000);
+  }
 }
 
 run().catch(err => {
