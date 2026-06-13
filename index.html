@@ -110,6 +110,9 @@
           </div>
         </div>
 
+        <!-- Porra del Campeón -->
+        <div id="champion-card"></div>
+
         <div class="section-title">Próximos partidos sin porra</div>
         <div id="home-next-match"></div>
 
@@ -393,6 +396,48 @@
 </div>
 
 <!-- ════════════════════════════════════════════════
+     MODAL: PORRA DEL CAMPEÓN
+════════════════════════════════════════════════ -->
+<div id="modal-champion" class="modal hidden">
+  <div class="modal-overlay" id="modal-champion-overlay"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>🏆 ¿Quién ganará el Mundial?</h3>
+      <button class="btn-icon" id="btn-close-champion-modal">✕</button>
+    </div>
+    <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:.5rem">
+      Acierta al campeón = <b style="color:var(--accent)">12 pts</b> ·
+      acierta un finalista (subcampeón) = <b style="color:var(--accent)">4 pts</b>
+    </p>
+    <input id="champion-search" class="input-field" placeholder="🔍 Buscar selección…" style="margin-bottom:.75rem">
+    <div class="players-grid" id="champion-grid"></div>
+    <button class="btn btn-primary btn-full" id="btn-save-champion" style="margin-top:1rem">💾 Guardar apuesta</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     MODAL: AVISO PORRA DEL CAMPEÓN
+════════════════════════════════════════════════ -->
+<div id="modal-announce" class="modal hidden">
+  <div class="modal-overlay"></div>
+  <div class="modal-sheet" style="text-align:center">
+    <div style="font-size:3rem;margin:.5rem 0">🏆</div>
+    <h3 style="margin-bottom:.5rem">¡Nueva porra especial!</h3>
+    <p style="font-size:.95rem;line-height:1.5;margin-bottom:1rem">
+      Apuesta por la selección que crees que <b>ganará el Mundial 2026</b>.
+    </p>
+    <div class="card" style="text-align:left;margin-bottom:1rem">
+      <p style="font-size:.9rem;margin-bottom:.4rem">🥇 Si tu selección <b>gana el Mundial</b> → <b style="color:var(--accent)">12 puntos</b></p>
+      <p style="font-size:.9rem">🥈 Si llega a la <b>final pero la pierde</b> → <b style="color:var(--accent)">4 puntos</b></p>
+    </div>
+    <p id="announce-deadline" style="font-size:.8rem;color:var(--text-dim);margin-bottom:1rem"></p>
+    <button class="btn btn-primary btn-full" id="btn-announce-bet">¡Apostar ahora!</button>
+    <button class="btn btn-secondary btn-full btn-sm" id="btn-announce-later" style="margin-top:.5rem">Más tarde</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
      MODAL: VER PORRAS DE UN PARTIDO
 ════════════════════════════════════════════════ -->
 <div id="modal-view-preds" class="modal hidden">
@@ -438,6 +483,6 @@
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/app.js?v=9"></script>
+<script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>

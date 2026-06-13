@@ -14,7 +14,7 @@ import {
   getDocs, onSnapshot,
   writeBatch, serverTimestamp, arrayUnion, arrayRemove,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
-import { FIREBASE_CONFIG, VAPID_KEY } from './config.js';
+import { FIREBASE_CONFIG, VAPID_KEY, CHAMPION_BET } from './config.js';
 import { BASE_MATCHES, SPAIN_SQUAD, PHASES } from './data.js?v=3';
 import {
   getMessaging, getToken, onMessage,
@@ -24,6 +24,21 @@ import {
 const firebaseApp = initializeApp(FIREBASE_CONFIG);
 const auth        = getAuth(firebaseApp);
 const db          = getFirestore(firebaseApp);
+
+// Las 48 selecciones (únicas, con bandera) sacadas de la fase de grupos
+const ALL_TEAMS = (() => {
+  const map = new Map();
+  for (const m of BASE_MATCHES) {
+    if (m.phase !== 'group') continue;
+    if (!map.has(m.home)) map.set(m.home, m.homeFlag);
+    if (!map.has(m.away)) map.set(m.away, m.awayFlag);
+  }
+  return [...map.entries()].map(([name, flag]) => ({ name, flag }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+})();
+
+const CHAMPION_ID = 'CHAMPION';
+const championOpen = () => new Date() < new Date(CHAMPION_BET.deadline);
 
 // ── App State ─────────────────────────────────────────────
 let currentUser    = null;   // Firebase User
@@ -317,13 +332,15 @@ function listenResults() {
 
 function listenPredictions() {
   const ref = collection(db, 'groups', currentGroupId, 'predictions');
+  let firstLoad = true;
   const unsub = onSnapshot(ref, snap => {
     allPredictions = snap.docs.map(d => d.data());
     myPredictions  = {};
     allPredictions
-      .filter(p => p.uid === currentUser.uid)
+      .filter(p => p.uid === currentUser.uid && p.matchId !== CHAMPION_ID)
       .forEach(p => { myPredictions[p.matchId] = p; });
     renderCurrentPage();
+    if (firstLoad) { firstLoad = false; maybeShowAnnouncement(); }
   });
   unsubFns.push(unsub);
 }
@@ -367,9 +384,109 @@ function renderCurrentPage() {
   if (currentPage === 'group')       renderGroupPage();
 }
 
+// ── Porra del Campeón ─────────────────────────────────────
+function myChampionBet() {
+  return allPredictions.find(p => p.uid === currentUser.uid && p.matchId === CHAMPION_ID) || null;
+}
+
+function teamFlag(name) {
+  return ALL_TEAMS.find(t => t.name === name)?.flag || '🏳';
+}
+
+function renderChampionCard() {
+  const card = $('champion-card');
+  if (!card) return;
+  const bet  = myChampionBet();
+  const open = championOpen();
+
+  if (!open && !bet) { card.innerHTML = ''; return; }
+
+  if (open) {
+    card.innerHTML = `
+      <div class="card" style="border:1px solid var(--accent-dim);cursor:pointer" onclick="openChampionModal()">
+        <div class="section-title" style="margin-bottom:.35rem">🏆 Porra del Campeón</div>
+        ${bet
+          ? `<p style="font-size:.9rem">Tu apuesta: <b>${teamFlag(bet.teamPick)} ${escHtml(bet.teamPick)}</b> · toca para cambiar</p>`
+          : `<p style="font-size:.9rem">¿Quién ganará el Mundial? <b style="color:var(--accent)">Apuesta ya</b> (12 pts campeón · 4 pts finalista)</p>`}
+        <p style="font-size:.72rem;color:var(--text-dim);margin-top:.35rem">⏳ Cierra el ${fmtDeadline()}</p>
+      </div>`;
+  } else {
+    card.innerHTML = `
+      <div class="card">
+        <div class="section-title" style="margin-bottom:.35rem">🏆 Porra del Campeón (cerrada)</div>
+        <p style="font-size:.9rem">Tu apuesta: <b>${teamFlag(bet.teamPick)} ${escHtml(bet.teamPick)}</b>${
+          bet.points != null ? ` · <b style="color:var(--accent)">+${bet.points} pts</b>` : ''}</p>
+      </div>`;
+  }
+}
+
+function fmtDeadline() {
+  return new Date(CHAMPION_BET.deadline).toLocaleString('es-ES',
+    { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+}
+
+let championSelected = null;
+
+window.openChampionModal = function() {
+  if (!championOpen()) { showToast('La porra del campeón ya está cerrada', 'error'); return; }
+  championSelected = myChampionBet()?.teamPick || null;
+  $('champion-search').value = '';
+  renderChampionGrid('');
+  $('modal-champion').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+};
+
+function renderChampionGrid(filter) {
+  const f = filter.trim().toLowerCase();
+  const teams = ALL_TEAMS.filter(t => t.name.toLowerCase().includes(f));
+  $('champion-grid').innerHTML = teams.map(t => `
+    <div class="player-row${t.name === championSelected ? ' selected' : ''}" onclick="selectChampion('${escAttr(t.name)}')">
+      <span class="player-name">${t.flag} ${escHtml(t.name)}</span>
+      ${t.name === championSelected ? '<span style="color:var(--accent)">✓</span>' : ''}
+    </div>`).join('') || '<p style="color:var(--text-dim);font-size:.85rem">Sin resultados</p>';
+}
+
+window.selectChampion = function(name) {
+  championSelected = name;
+  renderChampionGrid($('champion-search').value);
+};
+
+async function saveChampionBet() {
+  if (!championOpen()) { showToast('La porra ya está cerrada', 'error'); return; }
+  if (!championSelected) { showToast('Elige una selección', 'error'); return; }
+  try {
+    await setDoc(doc(db, 'groups', currentGroupId, 'predictions', `${currentUser.uid}_${CHAMPION_ID}`), {
+      uid:         currentUser.uid,
+      matchId:     CHAMPION_ID,
+      type:        'champion',
+      teamPick:    championSelected,
+      points:      null,
+      submittedAt: serverTimestamp(),
+    }, { merge: true });
+    showToast('¡Apuesta de campeón guardada! 🏆', 'success');
+    $('modal-champion').classList.add('hidden');
+    document.body.style.overflow = '';
+  } catch (err) {
+    showToast('Error al guardar: ' + err.message, 'error');
+  }
+}
+
+// Aviso único al entrar mientras la porra esté abierta y sin apostar
+function maybeShowAnnouncement() {
+  if (!championOpen()) return;
+  const key = `champ-announce-${currentGroupId}`;
+  if (localStorage.getItem(key)) return;
+  if (myChampionBet()) { localStorage.setItem(key, '1'); return; }
+  $('announce-deadline').textContent = `⏳ Tienes hasta el ${fmtDeadline()}`;
+  $('modal-announce').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  localStorage.setItem(key, '1');
+}
+
 // ── Home Page ─────────────────────────────────────────────
 function renderHomePage() {
   renderHomeStats();
+  renderChampionCard();
 
   // Próximos 3 partidos sin porra (aún predecibles)
   const now = new Date();
@@ -1166,8 +1283,12 @@ async function recalculateMemberPoints() {
     );
 
     let totalPoints = 0, correct = 0, predictions = 0, streak = 0;
-    const preds = predsSnap.docs.map(d => d.data()).filter(p => p.points !== null);
+    const all = predsSnap.docs.map(d => d.data()).filter(p => p.points !== null);
 
+    // La apuesta de campeón suma puntos pero no cuenta como predicción/racha
+    totalPoints += all.filter(p => p.matchId === CHAMPION_ID).reduce((s, p) => s + (p.points || 0), 0);
+
+    const preds = all.filter(p => p.matchId !== CHAMPION_ID);
     // Sort by submission time to calculate streak correctly
     preds.sort((a, b) => {
       const ta = a.submittedAt?.seconds || 0;
@@ -1401,6 +1522,24 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-share-invite').addEventListener('click', shareInviteCode);
   $('btn-switch-group').addEventListener('click', leaveToChooser);
   $('btn-logout-main').addEventListener('click', logout);
+
+  // Champion bet modal
+  $('btn-save-champion').addEventListener('click', saveChampionBet);
+  $('champion-search').addEventListener('input', e => renderChampionGrid(e.target.value));
+  const closeChampionModal = () => {
+    $('modal-champion').classList.add('hidden');
+    document.body.style.overflow = '';
+  };
+  $('btn-close-champion-modal').addEventListener('click', closeChampionModal);
+  $('modal-champion-overlay').addEventListener('click', closeChampionModal);
+
+  // Announcement modal
+  const closeAnnounce = () => {
+    $('modal-announce').classList.add('hidden');
+    document.body.style.overflow = '';
+  };
+  $('btn-announce-later').addEventListener('click', closeAnnounce);
+  $('btn-announce-bet').addEventListener('click', () => { closeAnnounce(); openChampionModal(); });
 
   // View predictions modal
   const closeViewModal = () => {

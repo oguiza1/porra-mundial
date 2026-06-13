@@ -96,7 +96,12 @@ async function recalculateMemberPoints(groupId) {
       .collection('predictions').where('uid', '==', memberDoc.id).get();
 
     let totalPoints = 0, correct = 0, predictions = 0, streak = 0;
-    const preds = predsSnap.docs.map(d => d.data()).filter(p => p.points !== null && p.points !== undefined);
+    const all = predsSnap.docs.map(d => d.data()).filter(p => p.points !== null && p.points !== undefined);
+
+    // La apuesta de campeón suma puntos pero no cuenta como predicción/racha
+    totalPoints += all.filter(p => p.matchId === 'CHAMPION').reduce((s, p) => s + (p.points || 0), 0);
+
+    const preds = all.filter(p => p.matchId !== 'CHAMPION');
     preds.sort((a, b) => (a.submittedAt?.seconds || 0) - (b.submittedAt?.seconds || 0));
 
     for (const p of preds) {
@@ -156,7 +161,17 @@ async function cycle() {
       data.goalscorers = Object.entries(scorers).map(([name, goals]) => ({ name, goals }));
     }
 
-    updates.push({ matchId: e.id, data, finished: state === 'post', isSpainMatch: !!spainTeam });
+    // Si es la FINAL y ha terminado: campeón y subcampeón (para la porra del campeón)
+    let champion = null, runnerUp = null;
+    if (state === 'post' && BASE_BY_ID[e.id]?.phase === 'final') {
+      const win  = c.competitors.find(t => t.winner);
+      const lose = c.competitors.find(t => !t.winner);
+      champion = TEAMS[win?.team.displayName]?.[0] || null;
+      runnerUp = TEAMS[lose?.team.displayName]?.[0] || null;
+      console.log(`  🏆 FINAL: campeón ${champion}, subcampeón ${runnerUp}`);
+    }
+
+    updates.push({ matchId: e.id, data, finished: state === 'post', isSpainMatch: !!spainTeam, champion, runnerUp });
     console.log(`  ${e.shortName}: ${data.homeScore}-${data.awayScore} (${data.status})` +
       (data.goalscorers ? ` goleadores: ${JSON.stringify(data.goalscorers)}` : ''));
   }
@@ -200,7 +215,7 @@ async function cycle() {
     }
 
     let needsRecalc = false;
-    for (const { matchId, data, finished, isSpainMatch } of updates) {
+    for (const { matchId, data, finished, isSpainMatch, champion, runnerUp } of updates) {
       const existing = await resCol.doc(matchId).get();
       if (existing.exists && existing.data().pointsComputed) continue; // ya cerrado y puntuado
 
@@ -222,6 +237,20 @@ async function cycle() {
         await resCol.doc(matchId).set({ pointsComputed: true }, { merge: true });
         needsRecalc = true;
         console.log(`  Grupo ${groupId}: puntos calculados para ${predsSnap.size} porra(s) de ${matchId}`);
+
+        // Porra del campeón: 12 pts al que acertó el campeón, 4 al que acertó al subcampeón
+        if (champion) {
+          const champSnap = await db.collection('groups').doc(groupId)
+            .collection('predictions').where('matchId', '==', 'CHAMPION').get();
+          const cbatch = db.batch();
+          champSnap.docs.forEach(p => {
+            const pick = p.data().teamPick;
+            const pts  = pick === champion ? 12 : pick === runnerUp ? 4 : 0;
+            cbatch.update(p.ref, { points: pts });
+          });
+          await cbatch.commit();
+          console.log(`  Grupo ${groupId}: porra del campeón resuelta para ${champSnap.size} apuesta(s)`);
+        }
       }
     }
 

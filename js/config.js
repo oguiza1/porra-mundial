@@ -17,4 +17,12 @@ export const FIREBASE_CONFIG = {
 // → Certificados push web → Generar par de claves → copiar la clave pública
 export const VAPID_KEY = "BOCOqZvU7wNezbK0LubH-lZ5zSvg8-3GHDynWIZPorC8TLVtdxQAhnlQ7e7g0GVFGRuFjQx0mf7lIUffL-qfpcc";
 
+// Porra del Campeón: apuesta por la selección que ganará el Mundial.
+// Abierta hasta esta fecha (72h). Gana el campeón = 12 pts; finalista = 4 pts.
+export const CHAMPION_BET = {
+  deadline:        "2026-06-16T20:18:00Z",
+  pointsChampion:  12,
+  pointsFinalist:  4,
+};
+
 // ⚠️ Recuerda copiar también FIREBASE_CONFIG en sw.js
