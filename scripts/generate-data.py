@@ -10,6 +10,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200'
 STANDINGS  = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026'
+SPAIN_ROSTER = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/teams/164/roster'
+
+POS_ES = {'Goalkeeper': 'POR', 'Defender': 'DEF', 'Midfielder': 'MED', 'Forward': 'DEL'}
+POS_ORDER = {'POR': 0, 'DEF': 1, 'MED': 2, 'DEL': 3}
 
 # Nombre en español y bandera de cada selección (nombre ESPN → es)
 TEAMS = {
@@ -100,8 +104,20 @@ def team_es(name):
     return (translate_placeholder(name), '❓')
 
 def fetch(url):
-    with urllib.request.urlopen(url) as r:
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req) as r:
         return json.load(r)
+
+def fetch_spain_squad():
+    """Convocatoria real de España para el Mundial 2026 desde ESPN."""
+    data = fetch(SPAIN_ROSTER)
+    squad = []
+    for a in data.get('athletes', []):
+        pos = POS_ES.get(a['position']['name'], a['position'].get('abbreviation', '?'))
+        squad.append({'name': a['displayName'], 'pos': pos})
+    squad.sort(key=lambda p: POS_ORDER.get(p['pos'], 9))
+    assert 20 <= len(squad) <= 30, f'Plantilla de España con tamaño inesperado: {len(squad)}'
+    return squad
 
 def main():
     sb = fetch(SCOREBOARD)
@@ -160,15 +176,26 @@ def main():
                json.dumps(m['venue'], ensure_ascii=False),
                'true' if m['isSpainMatch'] else 'false'))
 
-    data_js = HEADER + '\n'.join(lines) + '\n];\n'
+    squad = fetch_spain_squad()
+    pos_label = {'POR': 'Porteros', 'DEF': 'Defensas', 'MED': 'Centrocampistas', 'DEL': 'Delanteros'}
+    squad_lines, last_pos = [], None
+    for p in squad:
+        if p['pos'] != last_pos:
+            squad_lines.append(f"  // {pos_label.get(p['pos'], p['pos'])}")
+            last_pos = p['pos']
+        squad_lines.append(f"  {{ name: {json.dumps(p['name'], ensure_ascii=False)}, pos: '{p['pos']}' }},")
+    squad_js = '\n'.join(squad_lines)
+
+    data_js = HEADER.replace('{{SPAIN_SQUAD}}', squad_js) + '\n'.join(lines) + '\n];\n'
     with open(os.path.join(ROOT, 'js', 'data.js'), 'w') as f:
         f.write(data_js)
 
     # ── scripts/matches.json (para los scripts de GitHub Actions) ──
     with open(os.path.join(ROOT, 'scripts', 'matches.json'), 'w') as f:
-        json.dump({'spainMatchIds': spain_ids, 'matches': matches}, f, ensure_ascii=False, indent=2)
+        json.dump({'spainMatchIds': spain_ids, 'spainSquad': [p['name'] for p in squad],
+                   'matches': matches}, f, ensure_ascii=False, indent=2)
 
-    print(f'OK: {len(matches)} partidos. España: {spain_ids}')
+    print(f'OK: {len(matches)} partidos, {len(squad)} jugadores de España. España: {spain_ids}')
 
 HEADER = '''\
 // ============================================================
@@ -178,35 +205,9 @@ HEADER = '''\
 // script de resultados en directo para actualizar Firestore).
 // ============================================================
 
+// Convocatoria real de España (obtenida de la API de ESPN al generar)
 export const SPAIN_SQUAD = [
-  // Porteros
-  { name: 'Unai Simón',       pos: 'POR' },
-  { name: 'David Raya',       pos: 'POR' },
-  { name: 'Álex Remiro',      pos: 'POR' },
-  // Defensas
-  { name: 'Carvajal',         pos: 'DEF' },
-  { name: 'Laporte',          pos: 'DEF' },
-  { name: 'Le Normand',       pos: 'DEF' },
-  { name: 'Grimaldo',         pos: 'DEF' },
-  { name: 'Cucurella',        pos: 'DEF' },
-  { name: 'Pedro Porro',      pos: 'DEF' },
-  { name: 'Nacho',            pos: 'DEF' },
-  // Centrocampistas
-  { name: 'Rodri',            pos: 'MED' },
-  { name: 'Pedri',            pos: 'MED' },
-  { name: 'Fabián Ruiz',      pos: 'MED' },
-  { name: 'Zubimendi',        pos: 'MED' },
-  { name: 'Merino',           pos: 'MED' },
-  { name: 'Gavi',             pos: 'MED' },
-  // Delanteros
-  { name: 'Lamine Yamal',     pos: 'DEL' },
-  { name: 'Nico Williams',    pos: 'DEL' },
-  { name: 'Dani Olmo',        pos: 'DEL' },
-  { name: 'Ferran Torres',    pos: 'DEL' },
-  { name: 'Álvaro Morata',    pos: 'DEL' },
-  { name: 'Mikel Oyarzabal',  pos: 'DEL' },
-  { name: 'Bryan Zaragoza',   pos: 'DEL' },
-  { name: 'Joselu',           pos: 'DEL' },
+{{SPAIN_SQUAD}}
 ];
 
 // Grupos y fases (para mostrar etiquetas en la UI)

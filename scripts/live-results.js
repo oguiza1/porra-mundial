@@ -8,7 +8,7 @@
 // ============================================================
 
 const admin = require('firebase-admin');
-const { matches: ALL_MATCHES } = require('./matches.json');
+const { matches: ALL_MATCHES, spainSquad: SPAIN_SQUAD } = require('./matches.json');
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
@@ -16,16 +16,6 @@ const db = admin.firestore();
 
 const KNOWN_IDS  = new Set(ALL_MATCHES.map(m => m.id));
 const BASE_BY_ID = Object.fromEntries(ALL_MATCHES.map(m => [m.id, m]));
-
-// Plantilla de España (mismos nombres que js/data.js — las
-// porras de goleadores se comparan por este nombre exacto)
-const SPAIN_SQUAD = [
-  'Unai Simón', 'David Raya', 'Álex Remiro',
-  'Carvajal', 'Laporte', 'Le Normand', 'Grimaldo', 'Cucurella', 'Pedro Porro', 'Nacho',
-  'Rodri', 'Pedri', 'Fabián Ruiz', 'Zubimendi', 'Merino', 'Gavi',
-  'Lamine Yamal', 'Nico Williams', 'Dani Olmo', 'Ferran Torres', 'Álvaro Morata',
-  'Mikel Oyarzabal', 'Bryan Zaragoza', 'Joselu',
-];
 
 // Nombre ESPN → (nombre español, bandera). Para actualizar los
 // cruces de eliminatorias cuando se conocen los equipos.

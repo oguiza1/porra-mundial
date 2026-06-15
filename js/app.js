@@ -15,7 +15,7 @@ import {
   writeBatch, serverTimestamp, arrayUnion, arrayRemove,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 import { FIREBASE_CONFIG, VAPID_KEY, CHAMPION_BET } from './config.js';
-import { BASE_MATCHES, SPAIN_SQUAD, PHASES } from './data.js?v=3';
+import { BASE_MATCHES, SPAIN_SQUAD, PHASES } from './data.js?v=11';
 import {
   getMessaging, getToken, onMessage,
 }                                  from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js';

@@ -5,35 +5,38 @@
 // script de resultados en directo para actualizar Firestore).
 // ============================================================
 
+// Convocatoria real de España (obtenida de la API de ESPN al generar)
 export const SPAIN_SQUAD = [
   // Porteros
-  { name: 'Unai Simón',       pos: 'POR' },
-  { name: 'David Raya',       pos: 'POR' },
-  { name: 'Álex Remiro',      pos: 'POR' },
+  { name: "David Raya", pos: 'POR' },
+  { name: "Unai Simón", pos: 'POR' },
+  { name: "Joan García", pos: 'POR' },
   // Defensas
-  { name: 'Carvajal',         pos: 'DEF' },
-  { name: 'Laporte',          pos: 'DEF' },
-  { name: 'Le Normand',       pos: 'DEF' },
-  { name: 'Grimaldo',         pos: 'DEF' },
-  { name: 'Cucurella',        pos: 'DEF' },
-  { name: 'Pedro Porro',      pos: 'DEF' },
-  { name: 'Nacho',            pos: 'DEF' },
+  { name: "Eric García", pos: 'DEF' },
+  { name: "Aymeric Laporte", pos: 'DEF' },
+  { name: "Alejandro Grimaldo", pos: 'DEF' },
+  { name: "Marc Cucurella", pos: 'DEF' },
+  { name: "Pedro Porro", pos: 'DEF' },
+  { name: "Marc Pubill", pos: 'DEF' },
+  { name: "Pau Cubarsí", pos: 'DEF' },
   // Centrocampistas
-  { name: 'Rodri',            pos: 'MED' },
-  { name: 'Pedri',            pos: 'MED' },
-  { name: 'Fabián Ruiz',      pos: 'MED' },
-  { name: 'Zubimendi',        pos: 'MED' },
-  { name: 'Merino',           pos: 'MED' },
-  { name: 'Gavi',             pos: 'MED' },
+  { name: "Marcos Llorente", pos: 'MED' },
+  { name: "Mikel Merino", pos: 'MED' },
+  { name: "Fabián Ruiz", pos: 'MED' },
+  { name: "Dani Olmo", pos: 'MED' },
+  { name: "Rodri", pos: 'MED' },
+  { name: "Pedri", pos: 'MED' },
+  { name: "Martín Zubimendi", pos: 'MED' },
+  { name: "Yéremy Pino", pos: 'MED' },
+  { name: "Álex Baena", pos: 'MED' },
+  { name: "Gavi", pos: 'MED' },
   // Delanteros
-  { name: 'Lamine Yamal',     pos: 'DEL' },
-  { name: 'Nico Williams',    pos: 'DEL' },
-  { name: 'Dani Olmo',        pos: 'DEL' },
-  { name: 'Ferran Torres',    pos: 'DEL' },
-  { name: 'Álvaro Morata',    pos: 'DEL' },
-  { name: 'Mikel Oyarzabal',  pos: 'DEL' },
-  { name: 'Bryan Zaragoza',   pos: 'DEL' },
-  { name: 'Joselu',           pos: 'DEL' },
+  { name: "Borja Iglesias", pos: 'DEL' },
+  { name: "Mikel Oyarzabal", pos: 'DEL' },
+  { name: "Ferran Torres", pos: 'DEL' },
+  { name: "Nico Williams", pos: 'DEL' },
+  { name: "Lamine Yamal", pos: 'DEL' },
+  { name: "Víctor Muñoz", pos: 'DEL' },
 ];
 
 // Grupos y fases (para mostrar etiquetas en la UI)
